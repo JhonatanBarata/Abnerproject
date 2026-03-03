@@ -71,9 +71,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     document.getElementById('userEmail').textContent = email;
     setAuthNavVisible(true);
     
-    // Carregar dados iniciais
-    loadMesas();
-    loadTipos();
+    // Admin mantido sem o módulo de coleção
   } catch (error) {
     errorDiv.textContent = 'Email ou senha incorretos';
     errorDiv.classList.remove('hidden');
@@ -106,8 +104,6 @@ firebaseAuth.onAuthStateChanged((user) => {
     document.getElementById('adminPanel').style.display = 'block';
     document.getElementById('userEmail').textContent = user.email;
     setAuthNavVisible(true);
-    loadMesas();
-    loadTipos();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('adminPanel').style.display = 'none';

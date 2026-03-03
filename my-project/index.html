@@ -196,7 +196,6 @@
 		
 		<div class="space-x-10 hidden md:block text-sm uppercase tracking-wider flex items-center gap-8 menu-fancy">
 			<a href="index.html" class="menu-link active">Início</a>
-			<a href="colecao.html" class="menu-link">Coleção</a>
 			<a href="sobre.html" class="menu-link">Sobre</a>
 			<a href="contato.html" class="menu-link">Contato</a>
 			<a href="admin.html" class="menu-link" style="color: #d4af37; font-weight: 700;">Admin</a>
@@ -240,7 +239,6 @@
 <!-- MENU MOBILE OVERLAY -->
 <div id="mobileMenu" class="mobile-menu" style="position: fixed; top: 70px; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 10, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.77, 0, 0.18, 1); z-index: 9999; pointer-events: none;">
 	<a href="index.html" style="font-size: 1.5rem; font-weight: 700; color: #e7cfa4; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.1) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid transparent; text-decoration: none; pointer-events: all;">Início</a>
-	<a href="colecao.html" style="font-size: 1.5rem; font-weight: 700; color: #e7cfa4; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.1) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid transparent; text-decoration: none; pointer-events: all;">Coleção</a>
 	<a href="sobre.html" style="font-size: 1.5rem; font-weight: 700; color: #e7cfa4; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.1) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid transparent; text-decoration: none; pointer-events: all;">Sobre</a>
 	<a href="contato.html" style="font-size: 1.5rem; font-weight: 700; color: #e7cfa4; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.1) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid transparent; text-decoration: none; pointer-events: all;">Contato</a>
 	<a href="admin.html" style="font-size: 1.5rem; font-weight: 700; color: #d4af37; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.2) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid #d4af37; text-decoration: none; pointer-events: all;">🔒 Admin</a>
@@ -274,8 +272,8 @@
       <button onclick="abrirModalSolicitacao()" class="inline-block bg-gradient-to-r from-ouro to-yellow-600 text-black px-8 py-4 text-center font-title font-bold rounded-xl shadow-lg hover:shadow-ouro/50 hover:scale-105 transition-all duration-300 border-2 border-ouro/50 uppercase tracking-wider" style="box-shadow: 0 4px 15px rgba(212,175,55,0.3); min-width:210px; font-size:1.05rem; letter-spacing:0.08em; cursor: pointer;">
         SOLICITAR ORÇAMENTO
       </button>
-      <a href="colecao.html" class="inline-block bg-gradient-to-br from-black/70 to-black/40 text-ouro px-8 py-4 text-center font-title font-bold rounded-xl shadow-2xl border-2 border-ouro/50 hover:border-ouro hover:shadow-ouro/30 transition-all duration-700 hover:-translate-y-1 hover:scale-105 backdrop-blur-sm uppercase tracking-wider" style="min-width:180px; font-size:1.05rem; letter-spacing:0.08em; color:#d4af37;">
-        VER COLEÇÃO
+      <a href="contato.html" class="inline-block bg-gradient-to-br from-black/70 to-black/40 text-ouro px-8 py-4 text-center font-title font-bold rounded-xl shadow-2xl border-2 border-ouro/50 hover:border-ouro hover:shadow-ouro/30 transition-all duration-700 hover:-translate-y-1 hover:scale-105 backdrop-blur-sm uppercase tracking-wider" style="min-width:180px; font-size:1.05rem; letter-spacing:0.08em; color:#d4af37;">
+        FALE CONOSCO
       </a>
     </div>
   </div>
@@ -909,8 +907,8 @@ if(btnMedidas && modalMedidas && closeModalMedidas && formMedidas) {
       localStorage.setItem('measurements', JSON.stringify(measurements));
       modalMedidas.classList.add('hidden');
       modalMedidas.classList.remove('show');
-      // Redirect to colecao.html
-      window.location.href = 'colecao.html';
+      // Redirect to contato.html
+      window.location.href = 'contato.html';
     } else {
       inputEspessura.focus();
     }
@@ -1079,6 +1077,7 @@ if (document.readyState === 'loading') {
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+<script src="firebase-config.local.js"></script>
 <script src="firebase-config.js"></script>
 <script src="load-carrossel.js"></script>
 <script src="mobile-menu.js"></script>
