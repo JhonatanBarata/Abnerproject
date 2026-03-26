@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Entrada segura do admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site-theme.css">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      font-family: "IBM Plex Sans", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(109, 221, 58, 0.15), transparent 35%),
+        radial-gradient(circle at bottom left, rgba(31, 86, 188, 0.28), transparent 40%),
+        linear-gradient(180deg, #d6dfeb 0%, #ffffff 45%, #d2dce8 100%);
+    }
+
+    .entry-card {
+      width: min(460px, 100%);
+      padding: 32px;
+      border-radius: 28px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      background:
+        linear-gradient(145deg, rgba(109, 221, 58, 0.08), rgba(31, 86, 188, 0.2)),
+        #ffffff;
+      box-shadow: 0 18px 36px rgba(2, 6, 23, 0.16);
+      text-align: center;
+    }
+
+    .entry-spinner {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 18px;
+      border-radius: 999px;
+      border: 4px solid rgba(31, 86, 188, 0.18);
+      border-top-color: #1f56bc;
+      animation: entrySpin 1s linear infinite;
+    }
+
+    .entry-kicker {
+      display: inline-block;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(0, 0, 0, 0.76);
+    }
+
+    h1 {
+      margin: 0;
+      font-family: "Oswald", sans-serif;
+      font-size: clamp(2rem, 6vw, 3rem);
+      line-height: 1;
+    }
+
+    p {
+      margin: 14px 0 0;
+      color: rgba(0, 0, 0, 0.7);
+      line-height: 1.7;
+    }
+
+    @keyframes entrySpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="entry-card" aria-live="polite">
+    <div class="entry-spinner" aria-hidden="true"></div>
+    <span class="entry-kicker">HBX</span>
+    <h1>Validando entrada protegida</h1>
+    <p>
+      Aguarde enquanto o token temporario e trocado por uma sessao segura antes de abrir o admin.
+    </p>
+  </main>
+
+  <script src="hbx-config.local.js"></script>
+  <script src="hbx-config.js"></script>
+  <script src="hbx-admin-auth.js"></script>
+  <script>
+    window.HBXAdminAuth.processEntryPage();
+  </script>
+</body>
+</html>

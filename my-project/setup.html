@@ -44,17 +44,27 @@
     .log-item { margin: 5px 0; }
   </style>
   <link rel="stylesheet" href="page-transitions.css">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZRS8VTKTMK">
+</script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-ZRS8VTKTMK');
+</script>
 </head>
 <body>
   <div id="page-loader" class="page-loader">
     <div class="loader-ring"></div>
     <div class="loader-text">Carregando...</div>
   </div>
-  <h1>🔧 Setup Inicial - Madeireira Monteiro</h1>
+  <h1>🔧 Setup Inicial - Guincho Rio Claro</h1>
   
   <div class="info">
     <strong>⚠️ Importante:</strong><br>
-    1. Configure o Firebase primeiro (firebase-config.js)<br>
+    1. Configure o Firebase primeiro (firebase-config.local.js)<br>
     2. Crie usuário no Firebase Authentication<br>
     3. Faça login abaixo<br>
     4. Execute este script para popular dados iniciais<br>
@@ -86,6 +96,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="firebase-config.local.js"></script>
   <script src="firebase-config.js"></script>
 
   <script>
@@ -93,6 +104,11 @@
     // firebaseDB está disponível globalmente
     
     function verificarFirebase() {
+      if (typeof firebaseDB === 'undefined') {
+        log('Firebase not loaded! Check firebase-config.local.js and firebase-config.js', 'error');
+        return false;
+      }
+
       if (typeof firebaseDB !== 'undefined') {
         log('✓ Firebase conectado', 'success');
         return true;
@@ -148,6 +164,11 @@
 
     // Verificar se já está logado
     window.addEventListener('load', () => {
+      if (typeof firebase === 'undefined' || typeof firebaseDB === 'undefined') {
+        log('Firebase not loaded! Check firebase-config.local.js and firebase-config.js', 'error');
+        return;
+      }
+
       firebaseAuth.onAuthStateChanged((user) => {
         if (user) {
           document.getElementById('loginSection').style.display = 'none';
@@ -177,8 +198,6 @@
       
       try {
         log('📝 Iniciando inserção de tipos...');
-        console.log('Firebase DB:', firebaseDB);
-        console.log('Collection tipos:', firebaseDB.collection('tipos'));
         
         for (const tipo of tipos) {
           log(`Adicionando tipo: ${tipo.nome}...`);
@@ -318,3 +337,4 @@
   <script src="page-transitions.js"></script>
 </body>
 </html>
+

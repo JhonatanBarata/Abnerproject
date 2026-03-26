@@ -1,5 +1,5 @@
 /* ========================================
-   MOBILE RESPONSIVE - Madeireira Monteiro
+   MOBILE RESPONSIVE - Guincho Rio Claro
    Otimizado para iPhone e Android
    ======================================== */
 
@@ -52,7 +52,7 @@ body {
     display: none !important;
   }
   
-  /* Botão hamburguer */
+  /* Bot�o hamburguer */
   .mobile-menu-btn {
     display: flex !important;
     flex-direction: column;
@@ -166,7 +166,7 @@ body {
     margin-bottom: 0.75rem !important;
   }
   
-  /* Botões mobile */
+  /* Bot�es mobile */
   section .flex-row {
     flex-direction: column !important;
     gap: 1rem !important;
@@ -224,7 +224,7 @@ body {
   }
 }
 
-/* ========= COLEÇÃO/GRID MOBILE ========= */
+/* ========= COLE��O/GRID MOBILE ========= */
 @media (max-width: 768px) {
   
   /* Grid de produtos */
@@ -261,7 +261,7 @@ body {
     padding: 0.25rem 0.75rem !important;
   }
   
-  /* Botões dos cards */
+  /* Bot�es dos cards */
   .mesa-card a,
   .mesa-card button {
     width: 100% !important;
@@ -295,14 +295,14 @@ body {
     border-radius: 8px;
   }
   
-  /* Especificações */
+  /* Especifica��es */
   .specs-list li {
     font-size: 0.9rem !important;
     padding: 0.75rem !important;
   }
 }
 
-/* ========= FORMULÁRIO CONTATO MOBILE ========= */
+/* ========= FORMUL�RIO CONTATO MOBILE ========= */
 @media (max-width: 768px) {
   
   form {
@@ -329,7 +329,7 @@ body {
   }
 }
 
-/* ========= SOBRE NÓS MOBILE ========= */
+/* ========= SOBRE N�S MOBILE ========= */
 @media (max-width: 768px) {
   
   .sobre-content {
@@ -439,7 +439,7 @@ body {
   }
 }
 
-/* ========= ANIMAÇÕES SUAVES MOBILE ========= */
+/* ========= ANIMA��ES SUAVES MOBILE ========= */
 @media (max-width: 768px) {
   
   .fade-up {
@@ -459,7 +459,7 @@ body {
 /* ========= TOUCH TARGETS ========= */
 @media (max-width: 768px) {
   
-  /* Mínimo 44x44px para touch */
+  /* M�nimo 44x44px para touch */
   a,
   button,
   input[type="submit"],
@@ -471,7 +471,7 @@ body {
     justify-content: center;
   }
   
-  /* Links com espaçamento */
+  /* Links com espa�amento */
   a:not(.logo-glow) {
     padding: 0.5rem;
   }

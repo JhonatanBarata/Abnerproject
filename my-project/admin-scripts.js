@@ -1,31 +1,68 @@
 // ================================
-// AUTENTICAÇÃO
+// AUTENTICACAO
 // ================================
 
-// Variáveis globais para gerenciamento de fotos
 let arquivosNovasFotos = [];
-let fotosExistentesAtual = [];
+let fotoAtualUrl = '';
+let mesasCache = [];
+let previewObjectUrls = [];
+let isSavingMesa = false;
+const MAX_UPLOAD_SIZE = 1280;
+const JPEG_QUALITY = 0.78;
+const PLACEHOLDER_IMAGE = '/dist/img/placeholder.svg';
+const TOUCH_DRAG_HOLD_MS = 220;
+const TOUCH_DRAG_MOVE_TOLERANCE = 12;
+const MODAL_TRANSITION_MS = 360;
+let draggedMesaId = null;
+let dragOverMesaId = null;
+let dragInsertPosition = 'before';
+let touchDragTimer = null;
+let touchDragStartPoint = null;
+let dragPreviewElement = null;
+let paymentRequestsCache = [];
+let paymentRequestsUnsubscribe = null;
+let isCreatingPaymentRequest = false;
+let latestPaymentRequestId = "";
+let latestPaymentRequestRecord = null;
+let activeCarouselType = 'leve';
+const CAROUSEL_TYPE_CONFIG = {
+  leve: {
+    key: 'leve',
+    label: 'carrossel leve',
+    name: 'Carrossel Leve',
+    photoField: 'fotoCarrossel',
+    photosField: 'fotosCarrossel',
+    orderField: 'ordemCarrossel'
+  },
+  pesado: {
+    key: 'pesado',
+    label: 'carrossel pesado',
+    name: 'Carrossel Pesado',
+    photoField: 'fotoCarrosselPesado',
+    photosField: 'fotosCarrosselPesado',
+    orderField: 'ordemCarrosselPesado'
+  }
+};
 
-// SISTEMA DE NOTIFICAÇÕES TOAST
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  
+
   const icons = {
     success: '✓',
     error: '✕',
-    info: 'ℹ',
-    warning: '⚠'
+    info: 'i',
+    warning: '!'
   };
-  
+
   toast.innerHTML = `
-    <span class="toast-icon">${icons[type]}</span>
+    <span class="toast-icon">${icons[type] || icons.info}</span>
     <span>${message}</span>
   `;
-  
+
   container.appendChild(toast);
-  
+
   setTimeout(() => {
     toast.style.animation = 'slideOut 0.3s ease-in';
     setTimeout(() => toast.remove(), 300);
@@ -40,51 +77,411 @@ function hideLoading() {
   document.getElementById('loadingOverlay').classList.remove('active');
 }
 
+function openBackdropModal(modalElement) {
+  if (!modalElement) return;
+  modalElement.classList.remove('hidden', 'is-closing');
+  requestAnimationFrame(() => {
+    modalElement.classList.add('is-open');
+  });
+}
+
+function closeBackdropModal(modalElement, onClosed) {
+  if (!modalElement) {
+    if (typeof onClosed === 'function') onClosed();
+    return;
+  }
+
+  if (modalElement.classList.contains('hidden')) {
+    if (typeof onClosed === 'function') onClosed();
+    return;
+  }
+
+  modalElement.classList.remove('is-open');
+  modalElement.classList.add('is-closing');
+
+  window.setTimeout(() => {
+    modalElement.classList.add('hidden');
+    modalElement.classList.remove('is-closing');
+    if (typeof onClosed === 'function') {
+      onClosed();
+    }
+  }, MODAL_TRANSITION_MS);
+}
+
+window.openBackdropModal = openBackdropModal;
+window.closeBackdropModal = closeBackdropModal;
+
+function revokePreviewObjectUrls() {
+  previewObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+  previewObjectUrls = [];
+}
+
+function setMesaFormBusy(isBusy) {
+  const submitBtn = document.getElementById('salvarFotoBtn');
+  const cancelBtn = document.getElementById('cancelarFotoBtn');
+  const closeBtn = document.getElementById('closeModalMesaBtn');
+  const fileInput = document.getElementById('mesaFotos');
+  const isEditing = Boolean(document.getElementById('mesaId')?.value);
+
+  if (submitBtn) {
+    submitBtn.disabled = isBusy;
+    submitBtn.textContent = isBusy
+      ? (isEditing ? 'Enviando foto...' : 'Enviando fotos...')
+      : (isEditing ? 'Salvar foto' : 'Salvar fotos');
+  }
+
+  if (cancelBtn) {
+    cancelBtn.disabled = isBusy;
+  }
+
+  if (closeBtn) {
+    closeBtn.disabled = isBusy;
+  }
+
+  if (fileInput) {
+    fileInput.disabled = isBusy;
+  }
+}
+
+function setUploadProgress({
+  visible = false,
+  percent = 0,
+  label = 'Selecione as fotos para iniciar o envio.',
+  countText = '0 de 0',
+  status = 'Aguardando'
+} = {}) {
+  const card = document.getElementById('uploadProgressCard');
+  const percentEl = document.getElementById('uploadProgressPercent');
+  const bar = document.getElementById('uploadProgressBar');
+  const labelEl = document.getElementById('uploadProgressLabel');
+  const countEl = document.getElementById('uploadProgressCount');
+  const statusEl = document.getElementById('uploadProgressStatus');
+
+  if (!card || !percentEl || !bar || !labelEl || !countEl || !statusEl) return;
+
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+
+  card.classList.toggle('hidden', !visible);
+  percentEl.textContent = `${safePercent}%`;
+  bar.style.width = `${safePercent}%`;
+  labelEl.textContent = label;
+  countEl.textContent = countText;
+  statusEl.textContent = status;
+}
+
+function resetUploadProgress() {
+  setUploadProgress();
+}
+
+function carregarImagemDeArquivo(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+
+    img.onerror = (error) => {
+      URL.revokeObjectURL(url);
+      reject(error);
+    };
+
+    img.src = url;
+  });
+}
+
+async function otimizarImagem(file) {
+  try {
+    const img = await carregarImagemDeArquivo(file);
+    const maxSide = Math.max(img.width, img.height);
+    const scale = maxSide > MAX_UPLOAD_SIZE ? MAX_UPLOAD_SIZE / maxSide : 1;
+    const targetWidth = Math.max(1, Math.round(img.width * scale));
+    const targetHeight = Math.max(1, Math.round(img.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return file;
+    }
+
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY)
+    );
+
+    if (!blob) {
+      return file;
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'foto';
+    return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+  } catch (error) {
+    console.error('Erro ao otimizar imagem:', error);
+    return file;
+  }
+}
+
+async function prepararArquivosParaUpload(files) {
+  const lista = Array.isArray(files) ? files.filter(Boolean) : [];
+
+  if (!lista.length) {
+    return [];
+  }
+
+  const total = lista.length;
+  const otimizados = [];
+
+  for (let index = 0; index < total; index += 1) {
+    setUploadProgress({
+      visible: true,
+      percent: (index / total) * 100,
+      label: total === 1 ? 'Otimizando foto...' : `Otimizando foto ${index + 1} de ${total}...`,
+      countText: `${index + 1} de ${total}`,
+      status: 'Otimizacao'
+    });
+
+    const otimizado = await otimizarImagem(lista[index]);
+    otimizados.push(otimizado);
+  }
+
+  setUploadProgress({
+    visible: true,
+    percent: 100,
+    label: total === 1 ? 'Otimizacao concluida.' : 'Otimizacao concluida.',
+    countText: `${total} de ${total}`,
+    status: 'Otimizacao'
+  });
+
+  return otimizados;
+}
+
 function setAuthNavVisible(isVisible) {
   const navAuth = document.getElementById('adminNavAuth');
   const logoutMobile = document.getElementById('logoutBtnMobile');
+  const logoutBtn = document.getElementById('logoutBtn');
 
   if (navAuth) {
     navAuth.classList.toggle('hidden', !isVisible);
     navAuth.setAttribute('data-auth', isVisible ? '1' : '0');
   }
+
+  if (logoutBtn) {
+    logoutBtn.classList.toggle('hidden', !isVisible);
+  }
+
   if (logoutMobile) {
     logoutMobile.classList.toggle('hidden', !isVisible);
     logoutMobile.setAttribute('data-auth', isVisible ? '1' : '0');
   }
 }
 
-// Default: hide auth-only controls until we confirm auth state
 setAuthNavVisible(false);
 
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
+const loginScreen = document.getElementById('loginScreen');
+const adminPanel = document.getElementById('adminPanel');
+const userEmailElement = document.getElementById('userEmail');
+const loginForm = document.getElementById('loginForm');
+const loginError = document.getElementById('loginError');
+const HBX_FIREBASE_AUTH_BRIDGE_PATH = '/api/admin/hbx-auth';
+let isAdminBootstrapPending = true;
+
+function setAdminScreenState(state) {
+  const showLogin = state === 'login';
+  const showPanel = state === 'panel';
+
+  if (loginScreen) {
+    loginScreen.style.display = showLogin ? 'flex' : 'none';
+  }
+
+  if (adminPanel) {
+    adminPanel.style.display = showPanel ? 'block' : 'none';
+  }
+}
+
+function applyAuthenticatedAdminState(user) {
+  setAdminScreenState('panel');
+  if (userEmailElement) {
+    userEmailElement.textContent = user?.email || 'Acesso HBX';
+  }
+  setAuthNavVisible(true);
+  loadMesas();
+  startPaymentRequestsListener();
+}
+
+function applySignedOutAdminState() {
+  if (isAdminBootstrapPending) {
+    setAdminScreenState('bootstrap');
+    return;
+  }
+
+  setAdminScreenState('login');
+  if (userEmailElement) {
+    userEmailElement.textContent = '';
+  }
+  setAuthNavVisible(false);
+  stopPaymentRequestsListener();
+  renderPaymentRequests([]);
+}
+
+function getFriendlyAuthError(error) {
+  const errorMessages = {
+    'auth/invalid-credential': 'Email ou senha incorretos.',
+    'auth/wrong-password': 'Email ou senha incorretos.',
+    'auth/user-not-found': 'Email ou senha incorretos.',
+    'auth/invalid-email': 'Email inválido.',
+    'auth/invalid-api-key': 'Configuracao do Firebase invalida.',
+    'auth/network-request-failed': 'Falha de conexao. Tente novamente.'
+  };
+
+  return errorMessages[error.code] || `Erro ao entrar: ${error.message}`;
+}
+
+function clearAdminWebsiteSession() {
+  if (window.HBXAdminAuth && typeof window.HBXAdminAuth.clearSession === 'function') {
+    window.HBXAdminAuth.clearSession();
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem('hbx_website_admin_session');
+  } catch (error) {
+    console.error('Nao foi possivel limpar a sessao HBX:', error);
+  }
+}
+
+function redirectAfterAdminLogout() {
+  if (window.HBXAdminAuth && typeof window.HBXAdminAuth.redirectToPublicHome === 'function') {
+    window.HBXAdminAuth.redirectToPublicHome();
+    return;
+  }
+
+  window.location.replace('index.html');
+}
+
+async function ensureFirebasePersistence() {
+  if (!firebaseAuth?.setPersistence || !window.firebase?.auth?.Auth?.Persistence?.LOCAL) {
+    return;
+  }
+
+  await firebaseAuth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL);
+}
+
+function waitForInitialAuthState() {
+  return new Promise((resolve) => {
+    const unsubscribe = firebaseAuth.onAuthStateChanged((user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
+async function signInFirebaseFromHbxSession() {
+  if (!window.HBXAdminAuth || !firebaseAuth?.signInWithCustomToken) {
+    return false;
+  }
+
+  const sessionToken = window.HBXAdminAuth.getSessionToken();
+  if (!sessionToken) {
+    return false;
+  }
+
+  const response = await fetch(HBX_FIREBASE_AUTH_BRIDGE_PATH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    cache: 'no-store',
+    body: JSON.stringify({ sessionToken })
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok || !data.firebaseCustomToken) {
+    throw new Error(data.error || 'Nao foi possivel abrir o admin automaticamente.');
+  }
+
+  if (data.sessionToken && typeof window.HBXAdminAuth.saveSession === 'function') {
+    window.HBXAdminAuth.saveSession(data.sessionToken);
+  }
+
+  await firebaseAuth.signInWithCustomToken(data.firebaseCustomToken);
+  return true;
+}
+
+async function initializeAdminAccess() {
+  setAdminScreenState('bootstrap');
+
+  try {
+    await Promise.resolve(window.__HBX_ADMIN_GUARD__);
+  } catch (error) {
+    isAdminBootstrapPending = false;
+    return;
+  }
+
+  try {
+    await ensureFirebasePersistence();
+  } catch (error) {
+    console.error('Nao foi possivel configurar a persistencia do Firebase:', error);
+  }
+
+  const restoredUser = await waitForInitialAuthState();
+
+  if (!restoredUser && !firebaseAuth.currentUser) {
+    try {
+      await signInFirebaseFromHbxSession();
+      if (loginError) {
+        loginError.classList.add('hidden');
+      }
+    } catch (error) {
+      console.error('Falha ao abrir o admin direto pela sessao HBX:', error);
+      if (loginError) {
+        loginError.textContent = 'A sessao HBX foi validada, mas nao foi possivel abrir o painel automaticamente. Entre com email e senha.';
+        loginError.classList.remove('hidden');
+      }
+    }
+  }
+
+  isAdminBootstrapPending = false;
+
+  if (!firebaseAuth.currentUser) {
+    applySignedOutAdminState();
+  }
+}
+
+loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const email = document.getElementById('loginEmail').value;
   const password = document.getElementById('loginPassword').value;
-  const errorDiv = document.getElementById('loginError');
-  
+
   try {
+    await ensureFirebasePersistence();
     await firebaseAuth.signInWithEmailAndPassword(email, password);
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminPanel').style.display = 'block';
-    document.getElementById('userEmail').textContent = email;
-    setAuthNavVisible(true);
-    
-    // Admin mantido sem o módulo de coleção
+    if (loginError) {
+      loginError.classList.add('hidden');
+    }
   } catch (error) {
-    errorDiv.textContent = 'Email ou senha incorretos';
-    errorDiv.classList.remove('hidden');
+    if (loginError) {
+      loginError.textContent = getFriendlyAuthError(error);
+      loginError.classList.remove('hidden');
+    }
+    console.error('Erro no login:', error);
   }
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  // Hide immediately so it never “sticks” on screen
   setAuthNavVisible(false);
   try {
     await firebaseAuth.signOut();
   } finally {
-    location.reload();
+    clearAdminWebsiteSession();
+    redirectAfterAdminLogout();
   }
 });
 
@@ -93,513 +490,291 @@ document.getElementById('logoutBtnMobile')?.addEventListener('click', async () =
   try {
     await firebaseAuth.signOut();
   } finally {
-    location.reload();
+    clearAdminWebsiteSession();
+    redirectAfterAdminLogout();
   }
 });
 
-// Verificar se já está logado
 firebaseAuth.onAuthStateChanged((user) => {
   if (user) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminPanel').style.display = 'block';
-    document.getElementById('userEmail').textContent = user.email;
-    setAuthNavVisible(true);
+    if (loginError) {
+      loginError.classList.add('hidden');
+    }
+    applyAuthenticatedAdminState(user);
   } else {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('adminPanel').style.display = 'none';
-    document.getElementById('userEmail').textContent = '';
-    setAuthNavVisible(false);
+    applySignedOutAdminState();
   }
 });
+
+initializeAdminAccess();
 
 // ================================
 // TABS
 // ================================
 
-function showTab(tabName) {
-  // Esconder todos
-  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  
-  // Mostrar selecionado
-  document.getElementById('tab' + capitalize(tabName)).classList.remove('hidden');
-  event.target.classList.add('active');
+function showTab(tabName, triggerButton = null) {
+  document.querySelectorAll('.tab-content').forEach((tab) => tab.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach((btn) => btn.classList.remove('active'));
+
+  const content = document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+  if (content) {
+    content.classList.remove('hidden');
+    content.classList.remove('tab-entering');
+    requestAnimationFrame(() => {
+      content.classList.add('tab-entering');
+      window.setTimeout(() => content.classList.remove('tab-entering'), 450);
+    });
+  }
+
+  if (triggerButton) {
+    triggerButton.classList.add('active');
+  } else if (event?.target) {
+    event.target.classList.add('active');
+  }
+
+  const addPhotoButton = document.getElementById('tabAddPhotoAction');
+  if (addPhotoButton) {
+    const showAddPhoto = tabName === 'mesas';
+    addPhotoButton.classList.toggle('is-hidden', !showAddPhoto);
+    addPhotoButton.disabled = !showAddPhoto;
+  }
 }
 
-function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
+showTab('payments', document.getElementById('tabBtnPayments'));
+
+// ================================
+// CARROSSEL
+// ================================
+
+function getCarouselTypeConfig(type = activeCarouselType) {
+  return CAROUSEL_TYPE_CONFIG[type] || CAROUSEL_TYPE_CONFIG.leve;
 }
 
-// Estilos das tabs
-const style = document.createElement('style');
-style.textContent = `
-  .tab-btn { background: transparent; color: #9ca3af; }
-  .tab-btn.active { background: rgba(212,175,55,0.1); color: #d4af37; border-bottom: 2px solid #d4af37; }
-  .tab-btn:hover { color: #d4af37; }
-`;
-document.head.appendChild(style);
+function getCarouselPhotoByType(mesa, type = activeCarouselType) {
+  if (!mesa) return '';
+  const config = getCarouselTypeConfig(type);
+  const photo = mesa[config.photoField];
+  return typeof photo === 'string' ? photo.trim() : '';
+}
 
-// ================================
-// MESAS - CRUD
-// ================================
+function getCarouselOrderByType(mesa, type = activeCarouselType) {
+  if (!mesa) return 0;
+  const config = getCarouselTypeConfig(type);
+  return typeof mesa[config.orderField] === 'number' ? mesa[config.orderField] : 999;
+}
 
-let mesasCache = [];
+function updateCarouselTypeUI() {
+  const leveBtn = document.getElementById('carouselTypeLeveBtn');
+  const pesadoBtn = document.getElementById('carouselTypePesadoBtn');
+  const hint = document.getElementById('carouselTypeHint');
+  const addPhotoButton = document.getElementById('tabAddPhotoAction');
+
+  if (leveBtn) {
+    leveBtn.classList.toggle('active', activeCarouselType === 'leve');
+  }
+
+  if (pesadoBtn) {
+    pesadoBtn.classList.toggle('active', activeCarouselType === 'pesado');
+  }
+
+  if (hint) {
+    hint.textContent = activeCarouselType === 'pesado'
+      ? 'Gerencie aqui as fotos do carrossel pesado.'
+      : 'Gerencie aqui as fotos do carrossel leve.';
+  }
+
+  if (addPhotoButton) {
+    addPhotoButton.textContent = activeCarouselType === 'pesado'
+      ? '+ Adicionar fotos pesados'
+      : '+ Adicionar fotos';
+  }
+}
+
+function setActiveCarouselType(type) {
+  if (!CAROUSEL_TYPE_CONFIG[type]) return;
+  activeCarouselType = type;
+  updateCarouselTypeUI();
+
+  const mesasTab = document.getElementById('tabMesas');
+  if (mesasTab && !mesasTab.classList.contains('hidden')) {
+    loadMesas();
+  }
+}
+
+document.getElementById('carouselTypeLeveBtn')?.addEventListener('click', function () {
+  setActiveCarouselType('leve');
+});
+
+document.getElementById('carouselTypePesadoBtn')?.addEventListener('click', function () {
+  setActiveCarouselType('pesado');
+});
+
+updateCarouselTypeUI();
 
 async function loadMesas() {
   const container = document.getElementById('listaMesas');
-  container.innerHTML = '<p class="text-gray-400 col-span-full text-center">Carregando...</p>';
-  
+  if (!container) return;
+
+  container.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: var(--muted);">Carregando...</p>';
+
   try {
     const snapshot = await firebaseDB.collection('mesas').orderBy('createdAt', 'desc').get();
     mesasCache = [];
-    
-    snapshot.forEach(doc => {
+    const config = getCarouselTypeConfig(activeCarouselType);
+
+    snapshot.forEach((doc) => {
       mesasCache.push({ id: doc.id, ...doc.data() });
     });
-    
-    // Ordenar mesas: primeiro as do carrossel (por ordemCarrossel), depois as outras
-    mesasCache.sort((a, b) => {
-      const aCarrossel = a.fotoCarrossel && a.fotoCarrossel.trim() !== '';
-      const bCarrossel = b.fotoCarrossel && b.fotoCarrossel.trim() !== '';
-      
-      if (aCarrossel && bCarrossel) {
-        return (a.ordemCarrossel || 0) - (b.ordemCarrossel || 0);
-      }
-      return aCarrossel ? -1 : 1;
-    });
-    
-    if (mesasCache.length === 0) {
-      container.innerHTML = '<p class="text-gray-400 col-span-full text-center">Nenhuma mesa cadastrada</p>';
+
+    const mesasCarrossel = getMesasCarrosselOrdenadas(activeCarouselType);
+    if (!mesasCarrossel.length) {
+      container.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--muted);">Nenhuma foto cadastrada no ${config.label}.</p>`;
       return;
     }
 
-    // Contar quantas mesas estão no carrossel
-    const mesasCarrossel = mesasCache.filter(m => m.fotoCarrossel && m.fotoCarrossel.trim() !== '');
-    let posicaoCarrossel = 0;
-    
-    container.innerHTML = mesasCache.map(mesa => {
-      const statusTexto = {
-        'disponivel': '✅ Disponível',
-        'encomenda': '📦 Encomenda',
-        'vendida': '💰 Vendida'
-      }[mesa.status] || (mesa.disponivel ? '✅ Disponível' : '📦 Encomenda');
-      
-      const precoFormatado = mesa.preco ? `R$ ${mesa.preco.toFixed(2).replace('.', ',')}` : 'Sem preço';
-      const temCarrossel = mesa.fotoCarrossel && mesa.fotoCarrossel.trim() !== '';
-      
-      // Se tem carrossel, incrementa posição e mostra
-      let posicaoTexto = '';
-      if (temCarrossel) {
-        posicaoCarrossel++;
-        posicaoTexto = `Posição ${posicaoCarrossel} de ${mesasCarrossel.length}`;
-      }
-      
+    container.innerHTML = mesasCarrossel.map((mesa, index) => {
+      const foto = getCarouselPhotoByType(mesa, activeCarouselType) || mesa.fotoPrincipal || mesa.fotos?.[0] || PLACEHOLDER_IMAGE;
+      const posicaoTexto = `Posição ${index + 1} de ${mesasCarrossel.length}`;
+
       return `
-      <div class="admin-card rounded-xl p-4">
-        <div class="relative">
-          <img src="${mesa.fotoPrincipal || mesa.fotos?.[0] || '/img/placeholder.svg'}" class="w-full h-48 object-contain rounded-lg mb-3 bg-gray-800" onerror="this.src='/img/placeholder.svg'">
-          ${temCarrossel ? `<div class="absolute top-2 right-2 bg-ouro text-black px-2 py-1 rounded-lg text-xs font-bold">🖼️ ${posicaoTexto}</div>` : `<div class="absolute top-2 right-2 bg-gray-600 text-white px-2 py-1 rounded-lg text-xs">Fora do Carrossel</div>`}
-        </div>
-        <h3 class="font-title text-ouro mb-1">${mesa.nome}</h3>
-        <p class="text-sm text-gray-400 mb-1">Tipo: ${mesa.tipo}</p>
-        <p class="text-xs text-green-400 mb-1">${precoFormatado}</p>
-        <p class="text-xs text-gray-500 mb-1">${statusTexto}</p>
-        <p class="text-xs text-gray-500 mb-3">${mesa.fotos ? mesa.fotos.length : 0} foto(s) total</p>
-        <div class="flex gap-2 mb-2">
-          <button onclick="editarMesa('${mesa.id}')" class="flex-1 py-2 bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/30 rounded text-blue-400 text-sm transition">
-            Editar
-          </button>
-          <button onclick="deletarMesa('${mesa.id}')" class="flex-1 py-2 bg-red-900/30 hover:bg-red-900/50 border border-red-500/30 rounded text-red-400 text-sm transition">
-            Deletar
-          </button>
-        </div>
-        ${temCarrossel ? `
-          <div class="flex gap-2">
-            <button onclick="moverMesaCarrossel('${mesa.id}', -1)" class="flex-1 py-2 bg-ouro/20 hover:bg-ouro/30 border border-ouro/50 rounded text-ouro text-sm transition">↑ Anterior</button>
-            <button onclick="moverMesaCarrossel('${mesa.id}', 1)" class="flex-1 py-2 bg-ouro/20 hover:bg-ouro/30 border border-ouro/50 rounded text-ouro text-sm transition">Próxima ↓</button>
+        <div class="admin-card admin-carousel-card" data-mesa-id="${mesa.id}" style="padding: 18px;">
+          <div style="position: relative;">
+            <div class="drag-meta-row">
+              <div class="drag-handle drag-position-badge" data-mesa-id="${mesa.id}" draggable="true" aria-label="Arraste para reordenar">${posicaoTexto}</div>
+            </div>
+            <img src="${foto}" style="display: block; width: 100%; height: 220px; object-fit: contain; border-radius: 18px; margin-bottom: 14px; background: #ffffff; border: 1px solid var(--line);" onerror="this.src='${PLACEHOLDER_IMAGE}'">
           </div>
-        ` : ''}
-      </div>
+          <h3 style="margin: 0 0 14px; font-family: 'Oswald', sans-serif; font-size: 1.15rem; letter-spacing: 0.02em;">${mesa.nome || ('Foto do ' + config.name)}</h3>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+            <button onclick="editarMesa('${mesa.id}')" class="btn-secondary" style="flex: 1; min-height: 44px;">
+              Editar
+            </button>
+            <button onclick="deletarMesa('${mesa.id}')" class="btn-danger" style="flex: 1; min-height: 44px;">
+              Deletar
+            </button>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="moverMesaCarrossel('${mesa.id}', -1)" class="btn-secondary" style="flex: 1; min-height: 44px;">Anterior</button>
+            <button onclick="moverMesaCarrossel('${mesa.id}', 1)" class="btn-secondary" style="flex: 1; min-height: 44px;">Proxima</button>
+          </div>
+        </div>
       `;
     }).join('');
+
+    bindReorderInteractions(container);
   } catch (error) {
-    container.innerHTML = '<p class="text-red-400 col-span-full text-center">Erro ao carregar mesas</p>';
+    container.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #f82e32;">Erro ao carregar fotos</p>';
     console.error(error);
   }
 }
 
-async function openModalMesa(mesaId = null) {
-  document.getElementById('modalMesa').classList.remove('hidden');
-  document.getElementById('modalMesaTitle').textContent = mesaId ? 'Editar Mesa' : 'Adicionar Mesa';
-  document.getElementById('mesaId').value = mesaId || '';
-  document.getElementById('fotoPrincipalIndex').value = '-1';
-  
-  if (mesaId) {
-    // Se é edição, carregar tipos e dados da mesa
-    await loadTiposSelect();
-    
-    const mesa = mesasCache.find(m => m.id === mesaId);
-    if (mesa) {
-      document.getElementById('mesaTipo').value = mesa.tipo;
-      document.getElementById('mesaNome').value = mesa.nome;
-      document.getElementById('mesaDescricao').value = mesa.descricao || '';
-      document.getElementById('mesaEspecs').value = (mesa.especificacoes || []).join('\n');
-      
-      // Disponibilidade com nova lógica
-      const statusDisp = mesa.status || (mesa.disponivel !== false ? 'disponivel' : 'encomenda');
-      document.getElementById('mesaDisponivel').value = statusDisp;
-      
-      // Preço e dimensões
-      document.getElementById('mesaPreco').value = mesa.preco || '';
-      document.getElementById('mesaComprimento').value = mesa.dimensoes?.comprimento || '';
-      document.getElementById('mesaLargura').value = mesa.dimensoes?.largura || '';
-      document.getElementById('mesaAltura').value = mesa.dimensoes?.altura || '';
-      document.getElementById('mesaEspessura').value = mesa.dimensoes?.espessura || '';
-      
-      // Armazenar fotos existentes
-      fotosExistentesAtual = mesa.fotos ? [...mesa.fotos] : [];
-      
-      // Carregar fotos selecionadas para carrossel (múltiplas)
-      if (mesa.fotosCarrossel && Array.isArray(mesa.fotosCarrossel)) {
-        document.getElementById('fotosCarrosselArray').value = JSON.stringify(mesa.fotosCarrossel);
-      } else if (mesa.fotoCarrossel) {
-        // Compatibilidade com o campo antigo (única foto)
-        document.getElementById('fotosCarrosselArray').value = JSON.stringify([mesa.fotoCarrossel]);
-      } else {
-        document.getElementById('fotosCarrosselArray').value = JSON.stringify([]);
-      }
-      
-      // Mostrar fotos existentes
-      if (mesa.fotos && mesa.fotos.length > 0) {
-        exibirTodasFotos(mesa.fotoPrincipal);
-      }
-    }
-  } else {
-    // Novo mesa - limpar completamente e carregar tipos
-    await loadTiposSelect();
-    
-    fotosExistentesAtual = [];
-    arquivosNovasFotos = [];
-    
-    // Limpar todos os campos do formulário
-    document.getElementById('mesaTipo').value = '';
-    document.getElementById('mesaNome').value = '';
-    document.getElementById('mesaDescricao').value = '';
-    document.getElementById('mesaEspecs').value = '';
-    document.getElementById('mesaDisponivel').value = 'disponivel';
-    document.getElementById('mesaPreco').value = '';
-    document.getElementById('mesaComprimento').value = '';
-    document.getElementById('mesaLargura').value = '';
-    document.getElementById('mesaAltura').value = '';
-    document.getElementById('mesaEspessura').value = '';
-    document.getElementById('fotosCarrosselArray').value = JSON.stringify([]);
-    
-    // Limpar preview de fotos
-    document.getElementById('previewFotos').innerHTML = '<p class="text-gray-400">Nenhuma foto adicionada</p>';
-    
-    // Limpar seletor de carrossel
-    document.getElementById('fotosCarrosselContainer').innerHTML = '<p class="text-gray-400 text-sm">Carregue fotos primeiro para selecionar</p>';
-    
-    // Limpar input de arquivos
-    document.getElementById('fotosInput').value = '';
+function getMesasCarrosselOrdenadas(type = activeCarouselType) {
+  const config = getCarouselTypeConfig(type);
+  return mesasCache
+    .filter((mesa) => getCarouselPhotoByType(mesa, type))
+    .slice()
+    .sort((a, b) => {
+      const aOrder = typeof a[config.orderField] === 'number' ? a[config.orderField] : 999;
+      const bOrder = typeof b[config.orderField] === 'number' ? b[config.orderField] : 999;
+      return aOrder - bOrder;
+    });
+}
+
+function clearTouchDragTimer() {
+  if (touchDragTimer) {
+    clearTimeout(touchDragTimer);
+    touchDragTimer = null;
   }
 }
 
-function exibirFotosExistentes(fotos, fotoPrincipal) {
-  const preview = document.getElementById('previewFotos');
-  preview.innerHTML = fotos.map((foto, idx) => `
-    <div class="relative group cursor-pointer" onclick="selecionarFotoPrincipal(${idx}, true)">
-      <img src="${foto}" class="w-full h-24 object-contain rounded-lg border-2 ${idx === fotos.indexOf(fotoPrincipal) ? 'border-ouro' : 'border-gray-600'} hover:border-ouro transition bg-gray-800">
-      ${idx === fotos.indexOf(fotoPrincipal) ? '<div class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg"><span class="text-ouro font-bold text-sm">PRINCIPAL</span></div>' : ''}
-      <button onclick="removerFotoExistente(event, ${idx})" class="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold">×</button>
-    </div>
-  `).join('');
+function updateDragClasses() {
+  const cards = document.querySelectorAll('.admin-carousel-card[data-mesa-id]');
+  cards.forEach((card) => {
+    const mesaId = card.dataset.mesaId;
+    card.classList.toggle('is-dragging-source', mesaId === draggedMesaId);
+    card.classList.toggle('is-drop-target', mesaId === dragOverMesaId && mesaId !== draggedMesaId);
+    card.classList.toggle('is-drop-before', mesaId === dragOverMesaId && mesaId !== draggedMesaId && dragInsertPosition === 'before');
+    card.classList.toggle('is-drop-after', mesaId === dragOverMesaId && mesaId !== draggedMesaId && dragInsertPosition === 'after');
+  });
 }
 
-// Exibir todas as fotos (existentes + novas)
-function exibirTodasFotos(fotoPrincipal = null) {
-  const preview = document.getElementById('previewFotos');
-  const todasFotos = [...fotosExistentesAtual];
-  
-  // Determinar índice da foto principal (-1 significa nenhuma principal)
-  let principalIdx = fotoPrincipal ? todasFotos.indexOf(fotoPrincipal) : -1;
-  if (principalIdx === -1 && fotoPrincipal !== null && fotoPrincipal !== undefined) {
-    principalIdx = -1;
-  }
-  
-  preview.innerHTML = todasFotos.map((foto, idx) => {
-    return `
-    <div class="relative group" data-foto-idx="${idx}">
-      <img src="${foto}" class="w-full h-24 object-contain rounded-lg border-2 ${idx === principalIdx ? 'border-ouro' : 'border-gray-600'} hover:border-ouro transition cursor-pointer bg-gray-800" onclick="selecionarFotoPrincipalGlobal(${idx})">
-      ${idx === principalIdx ? '<div class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg pointer-events-none"><span class="text-ouro font-bold text-sm">PRINCIPAL</span></div>' : ''}
-      <div class="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        ${idx > 0 ? `<button onclick="moverFoto(${idx}, ${idx - 1})" class="bg-blue-600 hover:bg-blue-700 text-white rounded w-6 h-6 flex items-center justify-center text-xs font-bold">↑</button>` : ''}
-        ${idx < todasFotos.length - 1 ? `<button onclick="moverFoto(${idx}, ${idx + 1})" class="bg-blue-600 hover:bg-blue-700 text-white rounded w-6 h-6 flex items-center justify-center text-xs font-bold">↓</button>` : ''}
-        <button onclick="removerFotoGlobal(event, ${idx})" class="bg-red-600 hover:bg-red-700 text-white rounded w-6 h-6 flex items-center justify-center text-xs font-bold">×</button>
-      </div>
-    </div>
-  `}).join('');
-  
-  // Adicionar preview das novas fotos a serem adicionadas
-  if (arquivosNovasFotos.length > 0) {
-    const novasHTML = arquivosNovasFotos.map((file, idx) => {
-      const globalIdx = todasFotos.length + idx;
-      const srcFoto = file instanceof File || (typeof file === 'object' && file.slice) ? URL.createObjectURL(file) : file;
-      return `
-        <div class="relative group" data-foto-idx="${globalIdx}">
-          <img src="${srcFoto}" class="w-full h-24 object-contain rounded-lg border-2 border-green-500 hover:border-ouro transition cursor-pointer bg-gray-800" onclick="selecionarFotoPrincipalGlobal(${globalIdx})">
-          <div class="absolute top-1 left-1 bg-green-600 px-2 py-0.5 rounded text-xs text-white font-bold">NOVA</div>
-          <div class="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            ${globalIdx > 0 ? `<button onclick="moverFoto(${globalIdx}, ${globalIdx - 1})" class="bg-blue-600 hover:bg-blue-700 text-white rounded w-6 h-6 flex items-center justify-center text-xs font-bold">↑</button>` : ''}
-            ${globalIdx < todasFotos.length + arquivosNovasFotos.length - 1 ? `<button onclick="moverFoto(${globalIdx}, ${globalIdx + 1})" class="bg-blue-600 hover:bg-blue-700 text-white rounded w-6 h-6 flex items-center justify-center text-xs font-bold">↓</button>` : ''}
-            <button onclick="removerFotoGlobal(event, ${globalIdx})" class="bg-red-600 hover:bg-red-700 text-white rounded w-6 h-6 flex items-center justify-center text-xs font-bold">×</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-    preview.innerHTML += novasHTML;
-  }
-  
-  // Atualizar índice da foto principal
-  document.getElementById('fotoPrincipalIndex').value = principalIdx;
-  
-  // Atualizar seletor de fotos do carrossel (incluir também as novas fotos)
-  const todasAsFotos = [...todasFotos];
-  // Adicionar referências às fotos novas (marcadas com "NEW:")
-  for (let i = 0; i < arquivosNovasFotos.length; i++) {
-    todasAsFotos.push(`NEW:${i}`);
-  }
-  exibirSeletorCarrossel(todasAsFotos);
-}
-
-function selecionarFotoPrincipalGlobal(idx) {
-  const principalAtual = parseInt(document.getElementById('fotoPrincipalIndex').value);
-  
-  // Se clicar na mesma foto que é principal, remove a marcação
-  if (idx === principalAtual) {
-    document.getElementById('fotoPrincipalIndex').value = '-1';
-    exibirTodasFotos(null);
-  } else {
-    // Senão, marca como principal
-    document.getElementById('fotoPrincipalIndex').value = idx;
-    const todasFotos = [...fotosExistentesAtual];
-    const fotoPrincipal = idx < todasFotos.length ? todasFotos[idx] : null;
-    exibirTodasFotos(fotoPrincipal);
+function removeDragPreview() {
+  if (dragPreviewElement) {
+    dragPreviewElement.remove();
+    dragPreviewElement = null;
   }
 }
 
-function exibirSeletorCarrossel(todasFotos = []) {
-  const container = document.getElementById('fotosCarrosselContainer');
-  
-  if (todasFotos.length === 0) {
-    container.innerHTML = '<p class="text-gray-400 text-sm">Carregue fotos primeiro para selecionar</p>';
+function resetDragState() {
+  draggedMesaId = null;
+  dragOverMesaId = null;
+  dragInsertPosition = 'before';
+  touchDragStartPoint = null;
+  clearTouchDragTimer();
+  removeDragPreview();
+  updateDragClasses();
+}
+
+function setDragSource(mesaId) {
+  draggedMesaId = mesaId;
+  dragOverMesaId = null;
+  dragInsertPosition = 'before';
+  updateDragClasses();
+}
+
+function setDragTarget(mesaId, insertPosition = 'before') {
+  dragOverMesaId = mesaId && mesaId !== draggedMesaId ? mesaId : null;
+  dragInsertPosition = insertPosition === 'after' ? 'after' : 'before';
+  updateDragClasses();
+}
+
+function ensureDragPreview(mesaId) {
+  if (dragPreviewElement) {
+    return dragPreviewElement;
+  }
+
+  const sourceCard = document.querySelector(`.admin-carousel-card[data-mesa-id="${mesaId}"]`);
+  if (!sourceCard) {
+    return null;
+  }
+
+  const preview = sourceCard.cloneNode(true);
+  preview.className = 'admin-card drag-preview-card';
+  preview.removeAttribute('data-mesa-id');
+  preview.querySelectorAll('button').forEach((button) => button.remove());
+
+  const rect = sourceCard.getBoundingClientRect();
+  preview.style.width = `${rect.width}px`;
+  preview.style.left = `${rect.left}px`;
+  preview.style.top = `${rect.top}px`;
+
+  document.body.appendChild(preview);
+  dragPreviewElement = preview;
+  return preview;
+}
+
+function updateDragPreviewPosition(clientX, clientY) {
+  if (!dragPreviewElement) {
     return;
   }
-  
-  // Recuperar fotos selecionadas para o carrossel
-  let selecionadas = [];
-  try {
-    selecionadas = JSON.parse(document.getElementById('fotosCarrosselArray').value || '[]');
-    if (!Array.isArray(selecionadas)) selecionadas = [];
-  } catch (e) {
-    selecionadas = [];
-  }
-  
-  container.innerHTML = `
-    <div class="space-y-2">
-      <div class="flex items-center justify-between gap-3 p-3 rounded border border-gray-600 bg-black/30 hover:border-red-500/40 transition">
-        <button type="button" onclick="limparFotosCarrossel()" class="px-3 py-2 rounded-lg bg-red-900/20 hover:bg-red-900/35 border border-red-500/30 text-red-300 text-sm transition">
-          Não incluir no carrossel
-        </button>
-        <span class="text-xs text-gray-500">Selecionadas: ${selecionadas.length}</span>
-      </div>
-      ${todasFotos.map((foto, idx) => {
-        // Verificar se é uma foto nova (começa com "NEW:")
-        const isNovaFoto = foto.startsWith('NEW:');
-        const srcPreview = isNovaFoto ? 
-          URL.createObjectURL(arquivosNovasFotos[parseInt(foto.split(':')[1])]) : 
-          foto;
-        const labelFoto = isNovaFoto ? `Foto Nova ${parseInt(foto.split(':')[1]) + 1}` : `Foto ${idx + 1}`;
-        
-        // Verificar se está selecionada no carrossel
-        const isSelected = selecionadas.includes(foto);
-        
-        return `
-        <div class="flex items-center gap-3 p-3 rounded border border-gray-600 bg-black/30 hover:border-ouro/50 transition">
-          <input type="checkbox" 
-                 name="fotoCarrossel"
-                 value="${foto}"
-                 id="carrossel-foto-${idx}"
-                 data-foto-url="${foto}"
-                 ${isSelected ? 'checked' : ''}
-                 onchange="atualizarFotosCarrossel()"
-                 class="cursor-pointer w-4 h-4">
-          <img src="${srcPreview}" class="w-12 h-12 object-contain rounded border border-gray-600 bg-gray-800">
-          <label for="carrossel-foto-${idx}" class="text-sm text-gray-400 cursor-pointer flex-1">${labelFoto}</label>
-          ${isSelected ? '<span class="text-xs bg-ouro text-black px-2 py-1 rounded font-bold">✓ CARROSSEL</span>' : ''}
-        </div>
-      `;
-      }).join('')}
-    </div>
-  `;
+
+  const offsetX = dragPreviewElement.offsetWidth / 2;
+  const offsetY = 38;
+  dragPreviewElement.style.left = `${clientX - offsetX}px`;
+  dragPreviewElement.style.top = `${clientY - offsetY}px`;
 }
 
-function atualizarFotosCarrossel() {
-  // Recuperar quais checkboxes estão selecionados
-  const checkboxesSelecionados = document.querySelectorAll('input[type="checkbox"][name="fotoCarrossel"]:checked');
-  const fotosCarrossel = Array.from(checkboxesSelecionados).map(cb => cb.value);
-  
-  // Salvar como JSON no hidden input
-  document.getElementById('fotosCarrosselArray').value = JSON.stringify(fotosCarrossel);
-  
-  // Re-renderizar para atualizar UI
-  const todasFotos = [...fotosExistentesAtual];
-  // Adicionar referências às fotos novas
-  for (let i = 0; i < arquivosNovasFotos.length; i++) {
-    todasFotos.push(`NEW:${i}`);
-  }
-  exibirSeletorCarrossel(todasFotos);
-}
-
-function limparFotosCarrossel() {
-  document.getElementById('fotosCarrosselArray').value = JSON.stringify([]);
-
-  const todasFotos = [...fotosExistentesAtual];
-  for (let i = 0; i < arquivosNovasFotos.length; i++) {
-    todasFotos.push(`NEW:${i}`);
-  }
-  exibirSeletorCarrossel(todasFotos);
-}
-
-function moverFoto(deIdx, paraIdx) {
-  const totalExistentes = fotosExistentesAtual.length;
-  
-  // Se ambas são existentes
-  if (deIdx < totalExistentes && paraIdx < totalExistentes) {
-    [fotosExistentesAtual[deIdx], fotosExistentesAtual[paraIdx]] = [fotosExistentesAtual[paraIdx], fotosExistentesAtual[deIdx]];
-  }
-  // Se ambas são novas
-  else if (deIdx >= totalExistentes && paraIdx >= totalExistentes) {
-    const deIdxNova = deIdx - totalExistentes;
-    const paraIdxNova = paraIdx - totalExistentes;
-    [arquivosNovasFotos[deIdxNova], arquivosNovasFotos[paraIdxNova]] = [arquivosNovasFotos[paraIdxNova], arquivosNovasFotos[deIdxNova]];
-  }
-  // Se está movendo entre existente e nova - NÃO PERMITIR
-  // As fotos existentes devem permanecer juntas e as novas juntas
-  
-  exibirTodasFotos();
-}
-
-function removerFotoGlobal(event, idx) {
-  event.stopPropagation();
-  
-  const totalExistentes = fotosExistentesAtual.length;
-  const totalFotos = totalExistentes + arquivosNovasFotos.length;
-  
-  if (totalFotos <= 1) {
-    showToast('A mesa precisa ter pelo menos uma foto.', 'warning');
-    return;
-  }
-  
-  if (idx < totalExistentes) {
-    // Remover foto existente
-    fotosExistentesAtual = fotosExistentesAtual.filter((_, i) => i !== idx);
-  } else {
-    // Remover foto nova
-    const novaIdx = idx - totalExistentes;
-    arquivosNovasFotos = arquivosNovasFotos.filter((_, i) => i !== novaIdx);
-  }
-  
-  // Ajustar índice da foto principal se necessário
-  const fotoPrincipalIdx = parseInt(document.getElementById('fotoPrincipalIndex').value);
-  if (fotoPrincipalIdx >= totalFotos - 1) {
-    document.getElementById('fotoPrincipalIndex').value = '0';
-  } else if (fotoPrincipalIdx > idx) {
-    document.getElementById('fotoPrincipalIndex').value = (fotoPrincipalIdx - 1).toString();
-  }
-  
-  exibirTodasFotos();
-}
-
-// Event listener para preview de fotos
-document.getElementById('mesaFotos').addEventListener('change', function() {
-  const files = Array.from(this.files);
-  
-  const totalFotos = fotosExistentesAtual.length + arquivosNovasFotos.length + files.length;
-  if (totalFotos > 10) {
-    showToast('Máximo de 10 fotos permitidas no total', 'warning');
-    this.value = '';
-    return;
-  }
-  
-  arquivosNovasFotos = [...arquivosNovasFotos, ...files];
-  exibirTodasFotos();
-  
-  // Limpar input para poder adicionar mais fotos depois
-  this.value = '';
-});
-
-function closeModalMesa() {
-  document.getElementById('modalMesa').classList.add('hidden');
-  document.getElementById('formMesa').reset();
-  document.getElementById('previewFotos').innerHTML = '';
-  document.getElementById('fotoPrincipalIndex').value = '-1';
-  arquivosNovasFotos = [];
-  fotosExistentesAtual = [];
-}
-
-async function editarMesa(id) {
-  openModalMesa(id);
-}
-
-async function moverMesaCarrossel(mesaId, direcao) {
+async function persistirNovaOrdemCarrossel(idsEmOrdem) {
   showLoading();
+
   try {
-    // Buscar todas as mesas que estão no carrossel
-    const snapshot = await firebaseDB.collection('mesas')
-      .where('fotoCarrossel', '!=', '')
-      .get();
-    
-    const mesasCarrossel = [];
-    snapshot.forEach(doc => {
-      mesasCarrossel.push({
-        id: doc.id,
-        ordemCarrossel: doc.data().ordemCarrossel !== undefined ? doc.data().ordemCarrossel : 0
-      });
-    });
-    
-    // Ordenar por ordem
-    mesasCarrossel.sort((a, b) => a.ordemCarrossel - b.ordemCarrossel);
-    
-    // Encontrar índice da mesa atual
-    const indice = mesasCarrossel.findIndex(m => m.id === mesaId);
-    if (indice === -1) {
-      showToast('Mesa não encontrada no carrossel', 'error');
-      hideLoading();
-      return;
-    }
-    
-    const novoIndice = indice + direcao;
-    if (novoIndice < 0 || novoIndice >= mesasCarrossel.length) {
-      showToast('Não é possível mover para essa posição', 'warning');
-      hideLoading();
-      return;
-    }
-    
-    // Trocar as duas mesas de posição no array
-    [mesasCarrossel[indice], mesasCarrossel[novoIndice]] = [mesasCarrossel[novoIndice], mesasCarrossel[indice]];
-    
-    // Atualizar TODAS as mesas com novas ordens sequenciais (0, 1, 2, 3...)
-    const updates = [];
-    mesasCarrossel.forEach((mesa, novaOrdem) => {
-      updates.push(
-        firebaseDB.collection('mesas').doc(mesa.id).update({
-          ordemCarrossel: novaOrdem
-        })
-      );
-    });
-    
-    await Promise.all(updates);
+    const config = getCarouselTypeConfig(activeCarouselType);
+    await Promise.all(
+      idsEmOrdem.map((id, novaOrdem) =>
+        firebaseDB.collection('mesas').doc(id).update({ [config.orderField]: novaOrdem })
+      )
+    );
+
     await loadMesas();
     showToast('Ordem do carrossel atualizada!', 'success');
   } catch (error) {
@@ -610,16 +785,405 @@ async function moverMesaCarrossel(mesaId, direcao) {
   }
 }
 
+async function reorderMesasByDrop(origemId, destinoId, insertPosition = 'before') {
+  if (!origemId || !destinoId || origemId === destinoId) {
+    return;
+  }
+
+  const mesasCarrossel = getMesasCarrosselOrdenadas();
+  const origemIndex = mesasCarrossel.findIndex((mesa) => mesa.id === origemId);
+  const destinoIndexOriginal = mesasCarrossel.findIndex((mesa) => mesa.id === destinoId);
+
+  if (origemIndex === -1 || destinoIndexOriginal === -1) {
+    showToast('Não foi possível reordenar essa foto.', 'error');
+    return;
+  }
+
+  const [mesaMovida] = mesasCarrossel.splice(origemIndex, 1);
+  const destinoIndex = mesasCarrossel.findIndex((mesa) => mesa.id === destinoId);
+  const insertIndex = insertPosition === 'after' ? destinoIndex + 1 : destinoIndex;
+  mesasCarrossel.splice(insertIndex, 0, mesaMovida);
+
+  await persistirNovaOrdemCarrossel(mesasCarrossel.map((mesa) => mesa.id));
+}
+
+function getInsertPositionFromPointer(card, clientY) {
+  const rect = card.getBoundingClientRect();
+  const midpoint = rect.top + (rect.height / 2);
+  return clientY > midpoint ? 'after' : 'before';
+}
+
+function handleReorderDragStart(event) {
+  const mesaId = event.currentTarget.dataset.mesaId;
+  if (!mesaId) {
+    event.preventDefault();
+    return;
+  }
+
+  setDragSource(mesaId);
+
+  if (event.dataTransfer) {
+    const sourceCard = event.currentTarget.closest('.admin-carousel-card[data-mesa-id]');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', mesaId);
+    if (sourceCard) {
+      event.dataTransfer.setDragImage(sourceCard, sourceCard.offsetWidth / 2, 40);
+    }
+  }
+}
+
+function handleReorderDragEnd() {
+  resetDragState();
+}
+
+function handleReorderDragOver(event) {
+  if (!draggedMesaId) return;
+
+  event.preventDefault();
+  const card = event.currentTarget.closest('.admin-carousel-card[data-mesa-id]');
+  if (!card) return;
+
+  setDragTarget(card.dataset.mesaId, getInsertPositionFromPointer(card, event.clientY));
+}
+
+async function handleReorderDrop(event) {
+  if (!draggedMesaId) return;
+
+  event.preventDefault();
+  const card = event.currentTarget.closest('.admin-carousel-card[data-mesa-id]');
+  const origemId = draggedMesaId;
+  const destinoId = card?.dataset.mesaId || null;
+  const insertPosition = dragInsertPosition;
+
+  resetDragState();
+  await reorderMesasByDrop(origemId, destinoId, insertPosition);
+}
+
+function handleTouchDragStart(event) {
+  if (event.touches.length !== 1) {
+    resetDragState();
+    return;
+  }
+
+  const mesaId = event.currentTarget.dataset.mesaId;
+  const touch = event.touches[0];
+
+  touchDragStartPoint = { x: touch.clientX, y: touch.clientY };
+  clearTouchDragTimer();
+
+  touchDragTimer = setTimeout(() => {
+    setDragSource(mesaId);
+    ensureDragPreview(mesaId);
+    updateDragPreviewPosition(touch.clientX, touch.clientY);
+
+    if (navigator.vibrate) {
+      navigator.vibrate(12);
+    }
+  }, TOUCH_DRAG_HOLD_MS);
+}
+
+function handleTouchDragMove(event) {
+  if (!touchDragStartPoint) {
+    return;
+  }
+
+  const touch = event.touches[0];
+  const deltaX = Math.abs(touch.clientX - touchDragStartPoint.x);
+  const deltaY = Math.abs(touch.clientY - touchDragStartPoint.y);
+
+  if (!draggedMesaId) {
+    if (deltaX > TOUCH_DRAG_MOVE_TOLERANCE || deltaY > TOUCH_DRAG_MOVE_TOLERANCE) {
+      clearTouchDragTimer();
+      touchDragStartPoint = null;
+    }
+    return;
+  }
+
+  event.preventDefault();
+  updateDragPreviewPosition(touch.clientX, touch.clientY);
+
+  const element = document.elementFromPoint(touch.clientX, touch.clientY);
+  const card = element?.closest('.admin-carousel-card[data-mesa-id]');
+  if (card) {
+    setDragTarget(card.dataset.mesaId, getInsertPositionFromPointer(card, touch.clientY));
+  } else {
+    setDragTarget(null);
+  }
+}
+
+async function handleTouchDragEnd() {
+  const origemId = draggedMesaId;
+  const destinoId = dragOverMesaId;
+  const insertPosition = dragInsertPosition;
+
+  resetDragState();
+
+  if (origemId && destinoId) {
+    await reorderMesasByDrop(origemId, destinoId, insertPosition);
+  }
+}
+
+function bindReorderInteractions(container) {
+  const cards = container.querySelectorAll('.admin-carousel-card[data-mesa-id]');
+  const handles = container.querySelectorAll('.drag-handle[data-mesa-id]');
+
+  cards.forEach((card) => {
+    card.addEventListener('dragover', handleReorderDragOver);
+    card.addEventListener('drop', handleReorderDrop);
+  });
+
+  handles.forEach((handle) => {
+    handle.addEventListener('dragstart', handleReorderDragStart);
+    handle.addEventListener('dragend', handleReorderDragEnd);
+    handle.addEventListener('touchstart', handleTouchDragStart, { passive: true });
+    handle.addEventListener('touchmove', handleTouchDragMove, { passive: false });
+    handle.addEventListener('touchend', handleTouchDragEnd);
+    handle.addEventListener('touchcancel', resetDragState);
+  });
+}
+
+function exibirPreviewFotos(srcFotos = [], { isExisting = false } = {}) {
+  const preview = document.getElementById('previewFotos');
+  if (!preview) return;
+
+  if (!srcFotos.length) {
+    preview.innerHTML = '<p class="text-gray-400 text-sm">Nenhuma foto selecionada.</p>';
+    return;
+  }
+
+  preview.innerHTML = `
+    <div class="preview-grid">
+      ${srcFotos.map((srcFoto, index) => `
+        <div class="preview-card">
+          <img src="${srcFoto}" onerror="this.src='${PLACEHOLDER_IMAGE}'">
+          <div class="preview-meta">
+            <span class="preview-badge">${isExisting ? 'Atual' : `Foto ${index + 1}`}</span>
+            <span>${isExisting ? 'Foto salva' : 'Pronta para envio'}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function calcularProximaOrdemCarrossel() {
+  const config = getCarouselTypeConfig(activeCarouselType);
+  const ordens = mesasCache
+    .filter((m) => typeof m[config.orderField] === 'number' && getCarouselPhotoByType(m, activeCarouselType))
+    .map((m) => m[config.orderField]);
+
+  return ordens.length ? Math.max(...ordens) + 1 : 0;
+}
+
+async function uploadArquivoComProgresso(file, onProgress) {
+  const uniquePrefix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const storageRef = firebaseStorage.ref(`mesas/${uniquePrefix}_${file.name}`);
+  const uploadTask = storageRef.put(file);
+
+  return new Promise((resolve, reject) => {
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        if (typeof onProgress === 'function') {
+          onProgress(snapshot);
+        }
+      },
+      reject,
+      async () => {
+        try {
+          const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+          resolve(downloadURL);
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
+}
+
+async function uploadFotosComProgresso(files) {
+  const lista = Array.isArray(files) ? files.filter(Boolean) : [];
+
+  if (!lista.length) {
+    return [];
+  }
+
+  const totalArquivos = lista.length;
+  const totalBytes = lista.reduce((sum, file) => sum + (file.size || 1), 0);
+  const bytesTransferidos = new Array(totalArquivos).fill(0);
+  const urls = [];
+
+  for (let index = 0; index < totalArquivos; index += 1) {
+    const file = lista[index];
+
+    const downloadURL = await uploadArquivoComProgresso(file, (snapshot) => {
+      bytesTransferidos[index] = snapshot.bytesTransferred;
+      const totalTransferido = bytesTransferidos.reduce((sum, value) => sum + value, 0);
+      const percent = totalBytes ? (totalTransferido / totalBytes) * 100 : 0;
+
+      setUploadProgress({
+        visible: true,
+        percent,
+        label: totalArquivos === 1
+          ? 'Enviando foto para o carrossel...'
+          : `Enviando foto ${index + 1} de ${totalArquivos}...`,
+        countText: `${index + 1} de ${totalArquivos}`,
+        status: 'Upload'
+      });
+    });
+
+    bytesTransferidos[index] = file.size || bytesTransferidos[index] || 1;
+    urls.push(downloadURL);
+  }
+
+  setUploadProgress({
+    visible: true,
+    percent: 100,
+    label: totalArquivos === 1 ? 'Upload concluído.' : 'Uploads concluidos.',
+    countText: `${totalArquivos} de ${totalArquivos}`,
+    status: 'Concluído'
+  });
+
+  return urls;
+}
+
+async function openModalMesa(mesaId = null) {
+  const fileInput = document.getElementById('mesaFotos');
+  const label = document.getElementById('mesaFotosLabel');
+  const helper = document.getElementById('mesaFotosHelper');
+  const config = getCarouselTypeConfig(activeCarouselType);
+  const modal = document.getElementById('modalMesa');
+
+  if (modal) {
+    openBackdropModal(modal);
+  }
+  document.getElementById('modalMesaTitle').textContent = mesaId
+    ? `Editar foto (${config.label})`
+    : `Adicionar fotos (${config.label})`;
+  document.getElementById('mesaId').value = mesaId || '';
+  arquivosNovasFotos = [];
+  revokePreviewObjectUrls();
+  resetUploadProgress();
+
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.multiple = !mesaId;
+  }
+
+  if (label) {
+    label.textContent = mesaId ? 'Foto principal *' : `Fotos do ${config.label} *`;
+  }
+
+  if (helper) {
+    helper.textContent = mesaId
+      ? 'Troque apenas a foto deste card. A posição no carrossel continua a mesma.'
+      : `Selecione uma ou varias fotos para o ${config.label}. A ordem inicial segue a sequencia dos arquivos escolhidos.`;
+  }
+
+  setMesaFormBusy(false);
+
+  if (mesaId) {
+    const mesa = mesasCache.find((m) => m.id === mesaId);
+    fotoAtualUrl = getCarouselPhotoByType(mesa, activeCarouselType) || mesa?.fotoPrincipal || mesa?.fotos?.[0] || '';
+    exibirPreviewFotos(fotoAtualUrl ? [fotoAtualUrl] : [], { isExisting: true });
+  } else {
+    fotoAtualUrl = '';
+    exibirPreviewFotos([]);
+  }
+}
+
+document.getElementById('mesaFotos').addEventListener('change', function () {
+  const files = Array.from(this.files || []);
+
+  revokePreviewObjectUrls();
+
+  if (!files.length) {
+    arquivosNovasFotos = [];
+    resetUploadProgress();
+
+    if (fotoAtualUrl) {
+      exibirPreviewFotos([fotoAtualUrl], { isExisting: true });
+    } else {
+      exibirPreviewFotos([]);
+    }
+
+    return;
+  }
+
+  arquivosNovasFotos = files;
+  previewObjectUrls = files.map((file) => URL.createObjectURL(file));
+  exibirPreviewFotos(previewObjectUrls);
+
+  setUploadProgress({
+    visible: true,
+    percent: 0,
+    label: files.length === 1
+      ? '1 foto pronta para envio.'
+      : `${files.length} fotos prontas para envio.`,
+    countText: `0 de ${files.length}`,
+    status: 'Pronto'
+  });
+});
+
+function closeModalMesa(force = false) {
+  if (isSavingMesa && !force) return;
+  const modal = document.getElementById('modalMesa');
+  const finalizeClose = () => {
+    document.getElementById('formMesa').reset();
+    document.getElementById('previewFotos').innerHTML = '';
+    arquivosNovasFotos = [];
+    fotoAtualUrl = '';
+    revokePreviewObjectUrls();
+    resetUploadProgress();
+    setMesaFormBusy(false);
+  };
+
+  if (modal) {
+    closeBackdropModal(modal, finalizeClose);
+    return;
+  }
+
+  finalizeClose();
+}
+
+function editarMesa(id) {
+  openModalMesa(id);
+}
+
+async function moverMesaCarrossel(mesaId, direcao) {
+  try {
+    const mesasCarrossel = getMesasCarrosselOrdenadas();
+    const indice = mesasCarrossel.findIndex((m) => m.id === mesaId);
+    if (indice === -1) {
+      showToast('Foto não encontrada no carrossel.', 'error');
+      return;
+    }
+
+    const novoIndice = indice + direcao;
+    if (novoIndice < 0 || novoIndice >= mesasCarrossel.length) {
+      showToast('Não é possível mover para essa posição.', 'warning');
+      return;
+    }
+
+    [mesasCarrossel[indice], mesasCarrossel[novoIndice]] = [mesasCarrossel[novoIndice], mesasCarrossel[indice]];
+    await persistirNovaOrdemCarrossel(mesasCarrossel.map((mesa) => mesa.id));
+  } catch (error) {
+    showToast('Erro ao atualizar ordem: ' + error.message, 'error');
+    console.error(error);
+  }
+}
+
 async function deletarMesa(id) {
-  if (!confirm('Tem certeza que deseja deletar esta mesa?')) return;
-  
+  if (!confirm('Tem certeza que deseja deletar esta foto?')) return;
+
   showLoading();
+
   try {
     await firebaseDB.collection('mesas').doc(id).delete();
     await loadMesas();
-    showToast('Mesa deletada com sucesso!', 'success');
+    showToast('Foto deletada com sucesso!', 'success');
   } catch (error) {
-    showToast('Erro ao deletar mesa: ' + error.message, 'error');
+    showToast('Erro ao deletar foto: ' + error.message, 'error');
   } finally {
     hideLoading();
   }
@@ -627,411 +1191,653 @@ async function deletarMesa(id) {
 
 document.getElementById('formMesa').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const mesaId = document.getElementById('mesaId').value;
-  const tipo = document.getElementById('mesaTipo').value.trim();
-  const nome = document.getElementById('mesaNome').value;
-  const descricao = document.getElementById('mesaDescricao').value;
-  const especificacoes = document.getElementById('mesaEspecs').value.split('\n').filter(e => e.trim());
-  const status = document.getElementById('mesaDisponivel').value;
-  const preco = parseFloat(document.getElementById('mesaPreco').value);
-  const fotosInput = document.getElementById('mesaFotos').files;
-  const fotoPrincipalIndex = parseInt(document.getElementById('fotoPrincipalIndex').value);
-  
-  // Dimensões
-  const dimensoes = {
-    comprimento: parseFloat(document.getElementById('mesaComprimento').value),
-    largura: parseFloat(document.getElementById('mesaLargura').value),
-    altura: parseFloat(document.getElementById('mesaAltura').value),
-    espessura: parseFloat(document.getElementById('mesaEspessura').value)
-  };
+  const isEditing = Boolean(mesaId);
+  const config = getCarouselTypeConfig(activeCarouselType);
+  const arquivosSelecionados = isEditing ? arquivosNovasFotos.slice(0, 1) : arquivosNovasFotos.slice();
 
-  if (!tipo) {
-    showToast('Selecione o tipo da mesa', 'warning');
+  if (!arquivosSelecionados.length && !fotoAtualUrl) {
+    showToast('Selecione uma foto.', 'warning');
     return;
   }
-  
-  if (isNaN(preco) || preco <= 0) {
-    showToast('Informe um preço válido', 'warning');
+
+  if (isSavingMesa) {
     return;
   }
-  
-  if (Object.values(dimensoes).some(v => isNaN(v) || v <= 0)) {
-    showToast('Informe todas as dimensões corretamente', 'warning');
-    return;
-  }
-  
-  // Verificar se o tipo existe
-  if (!tiposCache.some(t => t.nome === tipo)) {
-    showToast('O tipo selecionado não existe. Cadastre-o primeiro na aba "Tipos de Mesa".', 'error');
-    return;
-  }
-  
-  showLoading();
+
+  isSavingMesa = true;
+  setMesaFormBusy(true);
+
   try {
-    // Começar com as fotos existentes
-    const fotosUrls = [...fotosExistentesAtual];
-    
-    // Upload de fotos novas e mapear NEW: para URLs reais
-    const urlMapeamento = {}; // Mapear NEW:0 -> URL real, etc
-    for (let i = 0; i < arquivosNovasFotos.length; i++) {
-      const file = arquivosNovasFotos[i];
-      const storageRef = firebaseStorage.ref(`mesas/${Date.now()}_${file.name}`);
-      const snapshot = await storageRef.put(file);
-      const url = await snapshot.ref.getDownloadURL();
-      fotosUrls.push(url);
-      urlMapeamento[`NEW:${i}`] = url;
-    }
-    
-    // Determinar foto principal
-    const fotoPrincipalIndex = parseInt(document.getElementById('fotoPrincipalIndex').value);
-    const fotoPrincipal = fotosUrls[fotoPrincipalIndex >= 0 && fotoPrincipalIndex < fotosUrls.length ? fotoPrincipalIndex : 0];
-    
-    // Recuperar fotos selecionadas para o carrossel (múltiplas)
-    let fotosCarrossel = [];
-    try {
-      const fotosCarrosselRaw = JSON.parse(document.getElementById('fotosCarrosselArray').value || '[]');
-      
-      // Mapear NEW: para URLs reais
-      fotosCarrossel = fotosCarrosselRaw.map(foto => {
-        if (foto.startsWith('NEW:')) {
-          return urlMapeamento[foto] || null;
-        }
-        return foto;
-      }).filter(f => f !== null); // Remover nulas
-    } catch (e) {
-      fotosCarrossel = [];
-    }
-    
-    // Para compatibilidade, usar a primeira foto do carrossel como fotoCarrossel principal
-    const fotoCarrossel = fotosCarrossel.length > 0 ? fotosCarrossel[0] : '';
-    
-    // Determinar ordemCarrossel
-    let ordemCarrossel = undefined;
-    let removerOrdem = false;
-    
-    if (fotoCarrossel) {
-      // Adicionando ou atualizando para carrossel
-      if (mesaId) {
-        // Se é edição e já tinha ordem, manter a ordem existente
-        const mesaAtual = mesasCache.find(m => m.id === mesaId);
-        if (mesaAtual && typeof mesaAtual.ordemCarrossel === 'number') {
-          ordemCarrossel = mesaAtual.ordemCarrossel;
-        } else {
-          // Se é edição mas não tinha ordem, atribuir nova ordem no final
-          const snapshot = await firebaseDB.collection('mesas').get();
-          let maxOrdem = -1;
-          snapshot.forEach(doc => {
-            if (doc.id !== mesaId) { // Não contar a mesa atual
-              const mesa = doc.data();
-              if (mesa.fotoCarrossel && mesa.fotoCarrossel.trim() !== '') {
-                const ordem = mesa.ordemCarrossel;
-                if (typeof ordem === 'number' && ordem > maxOrdem) {
-                  maxOrdem = ordem;
-                }
-              }
-            }
-          });
-          ordemCarrossel = maxOrdem + 1;
-        }
-      } else {
-        // Se é mesa nova, atribuir no final
-        const snapshot = await firebaseDB.collection('mesas').get();
-        let maxOrdem = -1;
-        snapshot.forEach(doc => {
-          const mesa = doc.data();
-          if (mesa.fotoCarrossel && mesa.fotoCarrossel.trim() !== '') {
-            const ordem = mesa.ordemCarrossel;
-            if (typeof ordem === 'number' && ordem > maxOrdem) {
-              maxOrdem = ordem;
-            }
-          }
-        });
-        ordemCarrossel = maxOrdem + 1;
+    const arquivosParaUpload = arquivosSelecionados.length
+      ? await prepararArquivosParaUpload(arquivosSelecionados)
+      : [];
+
+    if (isEditing) {
+      let fotoPrincipal = fotoAtualUrl;
+
+      if (arquivosParaUpload.length) {
+        const [novaFoto] = await uploadFotosComProgresso(arquivosParaUpload);
+        fotoPrincipal = novaFoto;
       }
+
+      let ordemCarrossel = 0;
+      const atual = mesasCache.find((m) => m.id === mesaId);
+
+      if (atual && typeof atual[config.orderField] === 'number') {
+        ordemCarrossel = atual[config.orderField];
+      } else {
+        ordemCarrossel = calcularProximaOrdemCarrossel();
+      }
+
+      const mesaData = {
+        nome: `Foto do ${config.name}`,
+        fotos: [fotoPrincipal],
+        fotoPrincipal,
+        [config.photoField]: fotoPrincipal,
+        [config.photosField]: [fotoPrincipal],
+        [config.orderField]: ordemCarrossel,
+        carouselType: config.key,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await firebaseDB.collection('mesas').doc(mesaId).set(
+        {
+          ...mesaData,
+          createdAt: mesasCache.find((m) => m.id === mesaId)?.createdAt || firebase.firestore.FieldValue.serverTimestamp()
+        },
+        { merge: true }
+      );
+
+      await firebaseDB.collection('mesas').doc(mesaId).update({
+        tipo: firebase.firestore.FieldValue.delete(),
+        descricao: firebase.firestore.FieldValue.delete(),
+        especificacoes: firebase.firestore.FieldValue.delete(),
+        status: firebase.firestore.FieldValue.delete(),
+        disponível: firebase.firestore.FieldValue.delete(),
+        preco: firebase.firestore.FieldValue.delete(),
+        dimensoes: firebase.firestore.FieldValue.delete()
+      });
+
+      showToast(`Foto salva no ${config.label}!`, 'success');
     } else {
-      // Removendo do carrossel, marcar para remover a ordem
-      removerOrdem = true;
+      const fotosPrincipais = await uploadFotosComProgresso(arquivosParaUpload);
+      const ordemInicial = calcularProximaOrdemCarrossel();
+
+      setUploadProgress({
+        visible: true,
+        percent: 100,
+        label: fotosPrincipais.length === 1
+          ? 'Salvando a foto no painel...'
+          : 'Salvando as fotos no painel...',
+        countText: `${fotosPrincipais.length} de ${fotosPrincipais.length}`,
+        status: 'Finalizando'
+      });
+
+      for (let index = 0; index < fotosPrincipais.length; index += 1) {
+        const fotoPrincipal = fotosPrincipais[index];
+        const mesaData = {
+          nome: `Foto do ${config.name}`,
+          fotos: [fotoPrincipal],
+          fotoPrincipal,
+          [config.photoField]: fotoPrincipal,
+          [config.photosField]: [fotoPrincipal],
+          [config.orderField]: ordemInicial + index,
+          carouselType: config.key,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        await firebaseDB.collection('mesas').add(mesaData);
+      }
+
+      showToast(
+        fotosPrincipais.length === 1
+          ? `Foto salva no ${config.label}!`
+          : `${fotosPrincipais.length} fotos salvas no ${config.label}!`,
+        'success'
+      );
     }
-    
-    const mesaData = {
-      tipo,
-      nome,
-      descricao,
-      especificacoes,
-      status,
-      disponivel: status === 'disponivel', // manter compatibilidade
-      preco,
-      dimensoes,
-      fotos: fotosUrls,
-      fotoPrincipal: fotoPrincipal,
-      fotoCarrossel: fotoCarrossel, // Primeira foto para compatibilidade
-      fotosCarrossel: fotosCarrossel, // Array de múltiplas fotos para o carrossel
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    // Adicionar ou remover ordemCarrossel
-    if (ordemCarrossel !== undefined) {
-      mesaData.ordemCarrossel = ordemCarrossel;
-    } else if (removerOrdem && mesaId) {
-      // Se está removendo do carrossel, deletar a ordem
-      mesaData.ordemCarrossel = firebase.firestore.FieldValue.delete();
-    }
-    
-    if (mesaId) {
-      await firebaseDB.collection('mesas').doc(mesaId).update(mesaData);
-    } else {
-      mesaData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      await firebaseDB.collection('mesas').add(mesaData);
-    }
-    
-    closeModalMesa();
+
+    closeModalMesa(true);
     await loadMesas();
-    await loadTipos();
-    showToast('Mesa salva com sucesso!', 'success');
-    hideLoading();
   } catch (error) {
-    showToast('Erro ao salvar mesa: ' + error.message, 'error');
+    if (arquivosSelecionados.length) {
+      setUploadProgress({
+        visible: true,
+        percent: 0,
+        label: 'Não foi possível concluir o envio. Tente novamente.',
+        countText: `0 de ${arquivosSelecionados.length}`,
+        status: 'Erro'
+      });
+    }
+
+    showToast('Erro ao salvar foto: ' + error.message, 'error');
     console.error(error);
-    hideLoading();
+  } finally {
+    isSavingMesa = false;
+    setMesaFormBusy(false);
   }
 });
 
-// ================================
-// TIPOS - CRUD
-// ================================
+const PAYMENT_STATUS_META = {
+  preparing: { label: 'Gerando link', tone: 'pending' },
+  pending: { label: 'Aguardando pagamento', tone: 'pending' },
+  approved: { label: 'Pago', tone: 'approved' },
+  released: { label: 'Pode sair', tone: 'released' },
+  failed: { label: 'Falhou', tone: 'failed' },
+  backend_pending: { label: 'Rascunho salvo', tone: 'backend_pending' }
+};
 
-let tiposCache = [];
-
-async function loadTipos() {
-  const container = document.getElementById('listaTipos');
-  if (container) {
-    container.innerHTML = '<p class="text-gray-400 col-span-full text-center">Carregando...</p>';
-  }
-  
-  try {
-    const snapshot = await firebaseDB.collection('tipos').orderBy('nome').get();
-    tiposCache = [];
-    
-    snapshot.forEach(doc => {
-      tiposCache.push({ id: doc.id, ...doc.data() });
-    });
-    
-    if (!container) return;
-    
-    if (tiposCache.length === 0) {
-      container.innerHTML = '<p class="text-gray-400 col-span-full text-center">Nenhum tipo cadastrado</p>';
-      return;
-    }
-    
-    // Para cada tipo, buscar as mesas daquele tipo
-    const tiposHTML = await Promise.all(tiposCache.map(async (tipo) => {
-      const mesasDoTipo = await firebaseDB.collection('mesas').where('tipo', '==', tipo.nome).get();
-      const mesas = [];
-      mesasDoTipo.forEach(doc => {
-        mesas.push({ id: doc.id, ...doc.data() });
-      });
-      
-      // Pegar as fotos principais das mesas
-      const fotosPreview = mesas.map(m => m.fotoPrincipal || m.fotos?.[0] || '/img/placeholder.svg').slice(0, 3);
-      
-      return `
-      <div class="admin-card rounded-xl p-4 flex flex-col h-full">
-        <div class="flex justify-between items-start mb-4">
-          <div class="flex-1">
-            <h3 class="font-title text-ouro text-lg">${tipo.nome}</h3>
-            <p class="text-xs text-gray-400 mt-1">${mesas.length} mesa(s)</p>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="editarTipo('${tipo.id}')" class="text-blue-400 hover:text-blue-300 text-sm">
-              ✏️
-            </button>
-            <button onclick="deletarTipo('${tipo.id}')" class="text-red-400 hover:text-red-300 text-sm">
-              🗑️
-            </button>
-          </div>
-        </div>
-        
-        <div class="grid grid-cols-3 gap-2 mb-3 flex-1">
-          ${fotosPreview.map(foto => `
-            <img src="${foto}" class="w-full h-20 object-contain rounded-lg border border-ouro/20 bg-gray-800" alt="mesa" onerror="this.src='/img/placeholder.svg'">
-          `).join('')}
-        </div>
-        
-        ${tipo.descricao ? `<p class="text-xs text-gray-400 mt-2">${tipo.descricao}</p>` : ''}
-      </div>
-      `;
-    }));
-    
-    container.innerHTML = tiposHTML.join('');
-  } catch (error) {
-    if (container) {
-      container.innerHTML = '<p class="text-red-400 col-span-full text-center">Erro ao carregar tipos</p>';
-    }
-    console.error('Erro ao loadTipos:', error);
-  }
+function getPaymentStatusMeta(status) {
+  return PAYMENT_STATUS_META[status] || PAYMENT_STATUS_META.pending;
 }
 
-async function loadTiposSelect() {
-  await loadTipos();
-  const selectTipo = document.getElementById('mesaTipo');
-  if (!selectTipo) return;
-  
-  // Guardar valor atual
-  const valorAtual = selectTipo.value;
-  
-  // Limpar e preencher select
-  selectTipo.innerHTML = '<option value="" disabled>Selecione um tipo...</option>';
-  selectTipo.innerHTML += tiposCache.map(tipo => 
-    `<option value="${tipo.nome}">${tipo.nome}</option>`
-  ).join('');
-  
-  // Restaurar valor se existir
-  if (valorAtual && tiposCache.some(t => t.nome === valorAtual)) {
-    selectTipo.value = valorAtual;
-  }
+function formatCurrencyBRL(value) {
+  const amount = Number(value || 0);
+  return amount.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 }
 
-function openModalTipo(tipoId = null) {
-  document.getElementById('modalTipo').classList.remove('hidden');
-  document.getElementById('tipoId').value = tipoId || '';
-  document.getElementById('modalTipoTitle').textContent = tipoId ? 'Editar Tipo' : 'Adicionar Tipo de Mesa';
-  
-  let nomeTypeAtual = '';
-  let mesasCarrosselAtual = [];
-  
-  if (tipoId) {
-    const tipo = tiposCache.find(t => t.id === tipoId);
-    if (tipo) {
-      document.getElementById('tipoNome').value = tipo.nome || '';
-      document.getElementById('tipoDescricao').value = tipo.descricao || '';
-      nomeTypeAtual = tipo.nome;
-      mesasCarrosselAtual = tipo.mesasCarrossel || [];
-    }
-  } else {
-    document.getElementById('tipoNome').value = '';
-    document.getElementById('tipoDescricao').value = '';
-  }
-  
-  // Carregar mesas deste tipo
-  carregarMesasParaCarrossel(nomeTypeAtual, mesasCarrosselAtual);
+function parseCurrencyInput(value) {
+  const normalized = String(value || '')
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-async function carregarMesasParaCarrossel(nomeType, mesasCarrosselAtual = []) {
-  const container = document.getElementById('mesasCarrosselContainer');
-  
-  try {
-    let snapshot;
-    if (nomeType) {
-      // Se estamos editando um tipo, buscar as mesas dele
-      snapshot = await firebaseDB.collection('mesas').where('tipo', '==', nomeType).get();
-    } else {
-      container.innerHTML = '<p class="text-gray-400 text-sm">Salve o tipo primeiro para adicionar mesas</p>';
-      return;
-    }
-    
-    if (snapshot.empty) {
-      container.innerHTML = '<p class="text-gray-400 text-sm">Nenhuma mesa cadastrada para este tipo</p>';
-      return;
-    }
-    
-    const mesas = [];
-    snapshot.forEach(doc => {
-      mesas.push({ id: doc.id, ...doc.data() });
-    });
-    
-    // Renderizar checkboxes para cada mesa
-    container.innerHTML = mesas.map(mesa => `
-      <label class="flex items-center gap-3 cursor-pointer hover:bg-black/50 p-2 rounded transition">
-        <input type="checkbox" class="mesa-carrossel-checkbox" value="${mesa.id}" 
-               ${mesasCarrosselAtual.includes(mesa.id) ? 'checked' : ''} 
-               class="w-4 h-4">
-        <span class="text-sm text-gray-300">${mesa.nome}</span>
-      </label>
-    `).join('');
-    
-    // Armazenar globalmente para usar no submit
-    window.mesasParaCarrossel = mesas.map(m => m.id);
-  } catch (error) {
-    console.error('Erro ao carregar mesas:', error);
-    container.innerHTML = '<p class="text-red-400 text-sm">Erro ao carregar mesas</p>';
+function normalizePhoneForWhatsApp(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.startsWith('55') ? digits : `55${digits}`;
+}
+
+function formatDateLabel(value) {
+  if (!value) return 'Agora';
+
+  if (typeof value.toDate === 'function') {
+    return value.toDate().toLocaleString('pt-BR');
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Agora';
+  }
+
+  return parsed.toLocaleString('pt-BR');
+}
+
+function getPaymentFormPayload() {
+  return {
+    customerName: document.getElementById('paymentCustomerName')?.value.trim() || '',
+    customerPhone: document.getElementById('paymentCustomerPhone')?.value.trim() || '',
+    customerEmail: document.getElementById('paymentCustomerEmail')?.value.trim() || '',
+    licensePlate: document.getElementById('paymentLicensePlate')?.value.trim().toUpperCase() || '',
+    vehicleType: document.getElementById('paymentVehicleType')?.value || 'Carro',
+    serviceType: document.getElementById('paymentServiceType')?.value || 'Socorro urgente',
+    pickupAddress: document.getElementById('paymentPickupAddress')?.value.trim() || '',
+    dropoffAddress: document.getElementById('paymentDropoffAddress')?.value.trim() || '',
+    amount: parseCurrencyInput(document.getElementById('paymentAmount')?.value || ''),
+    installments: Number(document.getElementById('paymentInstallments')?.value || 1),
+    notes: document.getElementById('paymentNotes')?.value.trim() || ''
+  };
+}
+
+function updatePaymentSummary() {
+  const payload = getPaymentFormPayload();
+  const clientEl = document.getElementById('paymentSummaryClient');
+  const amountEl = document.getElementById('paymentSummaryAmount');
+  const vehicleEl = document.getElementById('paymentSummaryVehicle');
+  const releaseEl = document.getElementById('paymentSummaryRelease');
+
+  if (!clientEl || !amountEl || !vehicleEl || !releaseEl) return;
+
+  clientEl.textContent = payload.customerName || 'Aguardando preenchimento';
+  amountEl.textContent = formatCurrencyBRL(payload.amount);
+  vehicleEl.textContent = `${payload.vehicleType}${payload.licensePlate ? ` | ${payload.licensePlate}` : ''}`;
+  releaseEl.textContent = payload.amount > 0
+    ? `Liberar somente quando status estiver Pago (${payload.installments}x max.)`
+    : 'Somente depois do status Pago';
+}
+
+function setPaymentCreateBusy(isBusy) {
+  const createBtn = document.getElementById('createPaymentBtn');
+  const resetBtn = document.getElementById('paymentResetBtn');
+
+  if (createBtn) {
+    createBtn.disabled = isBusy;
+    createBtn.textContent = isBusy ? 'Gerando cobrança...' : 'Gerar cobrança segura';
+  }
+
+  if (resetBtn) {
+    resetBtn.disabled = isBusy;
   }
 }
 
-function closeModalTipo() {
-  document.getElementById('modalTipo').classList.add('hidden');
-  document.getElementById('formTipo').reset();
-  document.getElementById('tipoId').value = '';
-}
+function setPaymentResultCard(record = null) {
+  const card = document.getElementById('paymentResultCard');
+  const link = document.getElementById('paymentLinkPreview');
+  const openBtn = document.getElementById('paymentOpenCheckoutBtn');
+  const copyBtn = document.getElementById('paymentCopyMessageBtn');
+  const whatsappBtn = document.getElementById('paymentOpenWhatsAppBtn');
 
-async function editarTipo(id) {
-  openModalTipo(id);
-}
+  if (!card || !link || !openBtn || !copyBtn || !whatsappBtn) return;
 
-async function deletarTipo(id) {
-  if (!confirm('Tem certeza que deseja deletar este tipo?')) return;
-  
-  showLoading();
-  try {
-    await firebaseDB.collection('tipos').doc(id).delete();
-    showToast('Tipo deletado com sucesso!', 'success');
-    await loadTipos();
-  } catch (error) {
-    showToast('Erro ao deletar tipo: ' + error.message, 'error');
-  } finally {
-    hideLoading();
-  }
-}
-
-document.getElementById('formTipo').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  const tipoId = document.getElementById('tipoId').value;
-  const nome = document.getElementById('tipoNome').value;
-  const descricao = document.getElementById('tipoDescricao').value;
-  
-  // Pegar IDs das mesas selecionadas no carrossel
-  const mesasCarrosselSelecionadas = Array.from(
-    document.querySelectorAll('.mesa-carrossel-checkbox:checked')
-  ).map(checkbox => checkbox.value);
-  
-  // Verificar se está autenticado
-  const user = firebaseAuth.currentUser;
-  if (!user) {
-    showToast('Você precisa estar logado para realizar esta ação', 'warning');
+  if (!record) {
+    latestPaymentRequestId = '';
+    latestPaymentRequestRecord = null;
+    card.classList.add('is-hidden');
+    link.textContent = 'Link de pagamento';
+    link.href = '#';
+    openBtn.disabled = true;
+    copyBtn.disabled = true;
+    whatsappBtn.disabled = true;
     return;
   }
-  
-  showLoading();
-  
+
+  latestPaymentRequestId = record.id || '';
+  latestPaymentRequestRecord = record;
+  const hasLink = Boolean(record.paymentUrl);
+
+  card.classList.remove('is-hidden');
+  link.textContent = hasLink ? record.paymentUrl : 'Rascunho salvo. Publique o backend para gerar o link automaticamente.';
+  link.href = hasLink ? record.paymentUrl : '#';
+  openBtn.disabled = !hasLink;
+  copyBtn.disabled = false;
+  whatsappBtn.disabled = false;
+}
+
+function resetPaymentForm() {
+  const form = document.getElementById('paymentForm');
+  if (!form) return;
+
+  form.reset();
+  document.getElementById('paymentVehicleType').value = 'Carro';
+  document.getElementById('paymentServiceType').value = 'Socorro urgente';
+  document.getElementById('paymentInstallments').value = '10';
+  setPaymentResultCard(null);
+  updatePaymentSummary();
+}
+
+function buildPaymentWhatsAppMessage(record) {
+  const lines = [
+    `Ola, ${record.customerName || 'cliente'}.`,
+    'Segue o link oficial para pagamento do atendimento com guincho.',
+    '',
+    `Valor: ${formatCurrencyBRL(record.amount)}`,
+    `Parcelamento máximo: até ${record.installments || 1}x`,
+    `Veículo: ${record.vehicleType || 'Não informado'}${record.licensePlate ? ` | Placa ${record.licensePlate}` : ''}`,
+    `Retirada: ${record.pickupAddress || 'Não informada'}`,
+    record.dropoffAddress ? `Destino: ${record.dropoffAddress}` : 'Destino: confirmar no atendimento',
+    '',
+    'Assim que o pagamento for aprovado, seguimos com a saída.',
+    record.paymentUrl ? `Link de pagamento: ${record.paymentUrl}` : 'Link de pagamento: backend ainda não publicado para gerar automaticamente.'
+  ];
+
+  return lines.join('\n');
+}
+
+async function copyTextToClipboard(text, successMessage) {
   try {
-    const updateData = {
-      nome,
-      descricao,
-      mesasCarrossel: mesasCarrosselSelecionadas,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    if (tipoId) {
-      // Editar tipo existente
-      await firebaseDB.collection('tipos').doc(tipoId).update(updateData);
-      showToast('Tipo atualizado com sucesso!', 'success');
-    } else {
-      // Adicionar novo tipo
-      await firebaseDB.collection('tipos').add({
-        ...updateData,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      showToast('Tipo adicionado com sucesso!', 'success');
-    }
-    
-    closeModalTipo();
-    await loadTipos();
+    await navigator.clipboard.writeText(text);
+    showToast(successMessage, 'success');
   } catch (error) {
-    console.error('Erro:', error);
-    showToast('Erro ao salvar tipo: ' + error.message, 'error');
-  } finally {
-    hideLoading();
+    showToast('Não foi possível copiar. Tente novamente.', 'error');
   }
+}
+
+function getPaymentRecordById(requestId) {
+  const fromCache = paymentRequestsCache.find((item) => item.id === requestId);
+  if (fromCache) {
+    return fromCache;
+  }
+
+  if (latestPaymentRequestRecord?.id === requestId) {
+    return latestPaymentRequestRecord;
+  }
+
+  return null;
+}
+
+function openLatestPaymentLink() {
+  const record = getPaymentRecordById(latestPaymentRequestId);
+  if (!record?.paymentUrl) {
+    showToast('Essa cobrança ainda não tem link ativo.', 'warning');
+    return;
+  }
+
+  window.open(record.paymentUrl, '_blank', 'noopener,noreferrer');
+}
+
+function copyLatestPaymentMessage() {
+  const record = getPaymentRecordById(latestPaymentRequestId);
+  if (!record) {
+    showToast('Crie uma cobrança primeiro.', 'warning');
+    return;
+  }
+
+  copyTextToClipboard(buildPaymentWhatsAppMessage(record), 'Mensagem pronta copiada!');
+}
+
+function openLatestPaymentWhatsApp() {
+  const record = getPaymentRecordById(latestPaymentRequestId);
+  if (!record) {
+    showToast('Crie uma cobrança primeiro.', 'warning');
+    return;
+  }
+
+  openPaymentWhatsApp(record.id);
+}
+
+function copyPaymentMessage(requestId) {
+  const record = getPaymentRecordById(requestId);
+  if (!record) {
+    showToast('Cobrança não encontrada.', 'error');
+    return;
+  }
+
+  copyTextToClipboard(buildPaymentWhatsAppMessage(record), 'Mensagem pronta copiada!');
+}
+
+function openPaymentWhatsApp(requestId) {
+  const record = getPaymentRecordById(requestId);
+  if (!record) {
+    showToast('Cobrança não encontrada.', 'error');
+    return;
+  }
+
+  const phone = normalizePhoneForWhatsApp(record.customerPhone);
+  if (!phone) {
+    showToast('Informe um WhatsApp valido para o cliente.', 'warning');
+    return;
+  }
+
+  const message = encodeURIComponent(buildPaymentWhatsAppMessage(record));
+  window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer');
+}
+
+async function markPaymentReleased(requestId) {
+  if (!requestId) return;
+
+  try {
+    await firebaseDB.collection('paymentRequests').doc(requestId).set(
+      {
+        status: 'released',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+    showToast('Status atualizado para "Pode sair".', 'success');
+  } catch (error) {
+    showToast('Não foi possível atualizar a liberação.', 'error');
+    console.error(error);
+  }
+}
+
+function renderPaymentRequests(requests = []) {
+  const container = document.getElementById('paymentRequestsList');
+  if (!container) return;
+
+  paymentRequestsCache = requests.slice();
+
+  if (latestPaymentRequestId) {
+    const matched = requests.find((item) => item.id === latestPaymentRequestId);
+    if (matched) {
+      latestPaymentRequestRecord = matched;
+    }
+  }
+
+  if (!requests.length) {
+    container.innerHTML = `
+      <div class="payment-empty">
+        Nenhuma cobrança criada ainda. Assim que você gerar a primeira, ela aparece aqui com status, link e atalho para o WhatsApp.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = requests.map((record) => {
+    const meta = getPaymentStatusMeta(record.status);
+    const hasLink = Boolean(record.paymentUrl);
+    const createdAtLabel = formatDateLabel(record.createdAt || record.createdAtIso);
+    const netAmount = Number(record.netReceivedAmount || record.mercadoPago?.netReceivedAmount || 0);
+
+    return `
+      <article class="payment-record">
+        <div class="payment-record__top">
+          <div>
+            <span class="admin-kicker" style="margin-bottom: 6px;">Cobrança #${record.id}</span>
+            <h4 style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 1.3rem; letter-spacing: 0.02em;">${record.customerName || 'Cliente sem nome'}</h4>
+            <p class="payment-muted" style="margin-top: 8px;">
+              ${record.serviceType || 'Atendimento com guincho'} | ${record.vehicleType || 'Veículo não informado'}${record.licensePlate ? ` | Placa ${record.licensePlate}` : ''}
+            </p>
+          </div>
+          <span class="payment-status-pill" data-status="${meta.tone}">${meta.label}</span>
+        </div>
+
+        <div class="payment-summary-grid">
+          <div>
+            <span class="payment-summary-label">Valor</span>
+            <span class="payment-summary-value">${formatCurrencyBRL(record.amount)}</span>
+          </div>
+          <div>
+            <span class="payment-summary-label">Parcelamento</span>
+            <span class="payment-summary-value">Até ${record.installments || 1}x</span>
+          </div>
+          <div>
+            <span class="payment-summary-label">WhatsApp</span>
+            <span class="payment-summary-value">${record.customerPhone || 'Não informado'}</span>
+          </div>
+          <div>
+            <span class="payment-summary-label">Criada em</span>
+            <span class="payment-summary-value">${createdAtLabel}</span>
+          </div>
+        </div>
+
+        <div class="payment-record__meta">
+          <div style="min-width: 0; flex: 1;">
+            <span class="payment-summary-label">Retirada</span>
+            <span class="payment-summary-value">${record.pickupAddress || 'Não informada'}</span>
+            <span class="payment-summary-label" style="margin-top: 12px;">Recebimento</span>
+            <span class="payment-summary-value">
+              ${record.status === 'approved'
+                ? `Pagamento aprovado. ${netAmount > 0 ? `Líquido no saldo Mercado Pago: ${formatCurrencyBRL(netAmount)}.` : 'Pode seguir para a saída.'}`
+                : 'A aprovação aparece no painel. O saldo cai na conta Mercado Pago do lojista conforme o meio de pagamento.'}
+            </span>
+          </div>
+          <div class="admin-actions" style="justify-content: flex-end;">
+            ${hasLink ? `<button type="button" class="btn-secondary" onclick="openLatestPaymentLinkById('${record.id}')">Abrir link</button>` : ''}
+            <button type="button" class="btn-secondary" onclick="copyPaymentMessage('${record.id}')">Copiar mensagem</button>
+            <button type="button" class="btn-secondary" onclick="openPaymentWhatsApp('${record.id}')">WhatsApp</button>
+            ${record.status === 'approved'
+              ? `<button type="button" class="btn-primary" onclick="markPaymentReleased('${record.id}')">Pode sair</button>`
+              : ''}
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function stopPaymentRequestsListener() {
+  if (paymentRequestsUnsubscribe) {
+    paymentRequestsUnsubscribe();
+    paymentRequestsUnsubscribe = null;
+  }
+}
+
+function startPaymentRequestsListener() {
+  stopPaymentRequestsListener();
+
+  if (!firebaseAuth.currentUser) {
+    return;
+  }
+
+  const query = firebaseDB.collection('paymentRequests').orderBy('createdAt', 'desc').limit(12);
+
+  paymentRequestsUnsubscribe = query.onSnapshot(
+    (snapshot) => {
+      const requests = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data() || {};
+        requests.push({
+          id: doc.id,
+          ...data,
+          paymentUrl: data.paymentUrl || data.mercadoPago?.paymentUrl || '',
+          sandboxPaymentUrl: data.sandboxPaymentUrl || data.mercadoPago?.sandboxPaymentUrl || '',
+          netReceivedAmount: data.netReceivedAmount || data.mercadoPago?.netReceivedAmount || 0
+        });
+      });
+
+      renderPaymentRequests(requests);
+    },
+    (error) => {
+      console.error(error);
+      showToast('Não foi possível acompanhar as cobranças em tempo real.', 'error');
+    }
+  );
+}
+
+async function requestMercadoPagoPreference(payload) {
+  const currentUser = firebaseAuth.currentUser;
+  if (!currentUser) {
+    throw new Error('Entre no admin para gerar a cobrança.');
+  }
+
+  const idToken = await currentUser.getIdToken();
+  const response = await fetch('/api/mercadopago/create-preference', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || 'Não foi possível gerar o link seguro agora.');
+  }
+
+  return data.paymentRequest;
+}
+
+async function savePaymentFallbackDraft(payload, reasonMessage) {
+  const docRef = await firebaseDB.collection('paymentRequests').add({
+    customerName: payload.customerName,
+    customerPhone: payload.customerPhone,
+    customerEmail: payload.customerEmail,
+    licensePlate: payload.licensePlate,
+    vehicleType: payload.vehicleType,
+    serviceType: payload.serviceType,
+    pickupAddress: payload.pickupAddress,
+    dropoffAddress: payload.dropoffAddress,
+    notes: payload.notes,
+    amount: payload.amount,
+    installments: payload.installments,
+    status: 'backend_pending',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    mercadoPago: {
+      provider: 'mercadopago',
+      providerStatus: 'backend_pending',
+      errorMessage: reasonMessage
+    }
+  });
+
+  return {
+    id: docRef.id,
+    ...payload,
+    status: 'backend_pending',
+    paymentUrl: '',
+    createdAtIso: new Date().toISOString()
+  };
+}
+
+async function submitPaymentForm(event) {
+  event.preventDefault();
+
+  if (isCreatingPaymentRequest) {
+    return;
+  }
+
+  const payload = getPaymentFormPayload();
+
+  if (!payload.customerName || !payload.customerPhone || !payload.pickupAddress || payload.amount <= 0) {
+    showToast('Preencha nome, WhatsApp, Local de Origem e valor antes de continuar.', 'warning');
+    return;
+  }
+
+  isCreatingPaymentRequest = true;
+  setPaymentCreateBusy(true);
+
+  try {
+    const paymentRequest = await requestMercadoPagoPreference(payload);
+    setPaymentResultCard(paymentRequest);
+    showToast('Cobrança segura gerada com sucesso!', 'success');
+  } catch (error) {
+    console.error(error);
+    try {
+      const fallbackRecord = await savePaymentFallbackDraft(payload, error.message || 'Backend ainda não publicado.');
+      setPaymentResultCard(fallbackRecord);
+      showToast('Backend ainda não respondeu. O rascunho foi salvo para você não perder o atendimento.', 'warning');
+    } catch (fallbackError) {
+      console.error(fallbackError);
+      showToast('Não foi possível gerar a cobrança nem salvar o rascunho.', 'error');
+    }
+  } finally {
+    isCreatingPaymentRequest = false;
+    setPaymentCreateBusy(false);
+  }
+}
+
+function openLatestPaymentLinkById(requestId) {
+  const record = getPaymentRecordById(requestId);
+  if (!record?.paymentUrl) {
+    showToast('Essa cobrança ainda não tem link ativo.', 'warning');
+    return;
+  }
+
+  window.open(record.paymentUrl, '_blank', 'noopener,noreferrer');
+}
+
+document.getElementById('paymentForm')?.addEventListener('submit', submitPaymentForm);
+document.getElementById('paymentResetBtn')?.addEventListener('click', resetPaymentForm);
+document.getElementById('paymentOpenCheckoutBtn')?.addEventListener('click', openLatestPaymentLink);
+document.getElementById('paymentCopyMessageBtn')?.addEventListener('click', copyLatestPaymentMessage);
+document.getElementById('paymentOpenWhatsAppBtn')?.addEventListener('click', openLatestPaymentWhatsApp);
+
+[
+  'paymentCustomerName',
+  'paymentCustomerPhone',
+  'paymentLicensePlate',
+  'paymentVehicleType',
+  'paymentServiceType',
+  'paymentPickupAddress',
+  'paymentAmount',
+  'paymentInstallments'
+].forEach((id) => {
+  document.getElementById(id)?.addEventListener('input', updatePaymentSummary);
+  document.getElementById(id)?.addEventListener('change', updatePaymentSummary);
 });
 
+document.getElementById('paymentAmount')?.addEventListener('blur', function () {
+  const parsed = parseCurrencyInput(this.value);
+  if (parsed > 0) {
+    this.value = parsed.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+  updatePaymentSummary();
+});
+
+updatePaymentSummary();
+setPaymentResultCard(null);

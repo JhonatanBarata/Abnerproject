@@ -1,243 +1,187 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="alternate icon" href="/favicon.ico">
-  
-  <title>Sobre Nós - Tradição e Qualidade | Madeireira Monteiro</title>
-  
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="Conheça a história da Madeireira Monteiro em Rio Claro - SP. Tradição em fabricação artesanal de móveis em madeira nobre, design exclusivo e compromisso com a qualidade premium.">
-  <meta name="keywords" content="sobre madeireira monteiro, história, tradição, artesanato, rio claro, madeira nobre, qualidade premium">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serviços | Auto Socorro Rio Claro</title>
+  <meta name="description" content="Conheça os serviços da Auto Socorro Rio Claro em remoções com guincho, incluindo veículos leves, pesados, tratores e máquinas.">
   <meta name="robots" content="index, follow">
-  
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://guinchorioclarosp.web.app/sobre.html">
-  <meta property="og:title" content="Sobre Nós - Tradição e Qualidade Premium">
-  <meta property="og:description" content="Conheça a Madeireira Monteiro: tradição em fabricação artesanal de móveis em madeira nobre com design exclusivo.">
-  <meta property="og:image" content="https://guinchorioclarosp.web.app/img/sobre-og.jpg">
-  
-  <!-- Twitter -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Sobre Nós - Madeireira Monteiro">
-  <meta name="twitter:description" content="Tradição em fabricação artesanal de móveis premium em madeira nobre. Conheça nossa história.">
-  <meta name="twitter:image" content="https://guinchorioclarosp.web.app/img/sobre-og.jpg">
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Mobile Responsive CSS -->
-  <link rel="stylesheet" href="mobile-responsive.css">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="page-transitions.css">
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            title: ['Cinzel', 'serif'],
-            body: ['Playfair Display', 'serif'],
-          },
-          colors: {
-            madeira: '#7a4a2e',
-            ouro: '#d4af37',
-            pretinho: '#0b0b0b'
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    html { scroll-behavior: smooth; }
-    .fade-up { opacity: 0; transform: translateY(40px); transition: all 1.2s cubic-bezier(.77,0,.18,1); }
-    .fade-up.show { opacity: 1; transform: translateY(0); }
-  </style>
+  <link rel="stylesheet" href="site-theme.css">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZRS8VTKTMK">
+</script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-ZRS8VTKTMK');
+</script>
 </head>
-<body class="bg-pretinho text-gray-200 font-body">
-  <div id="page-loader" class="page-loader">
+<body>
+  <div id="page-loader" class="page-loader" data-min-duration="280">
     <div class="loader-ring"></div>
-    <div class="loader-text">Carregando...</div>
+    <div class="loader-text">Carregando atendimento</div>
   </div>
-  <header class="fixed top-0 w-full z-50 transition-all duration-500 backdrop-blur-md" style="background-image: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.8) 100%), url('public/img/fundo2.jpg'); background-size: cover; background-position: center; background-attachment: fixed; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
-    <nav class="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
-      <a href="index.html" class="font-title text-3xl md:text-4xl text-ouro tracking-widest drop-shadow-lg logo-glow" style="letter-spacing:0.18em; background: linear-gradient(90deg, #d4af37 60%, #fffbe6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 12px #d4af3780); text-decoration: none;">
-        <span style="font-variant: small-caps; letter-spacing:0.22em;">Madeireira Monteiro</span>
-        <span style="font-size:1.2rem; color:#e7cfa4; margin-left:0.5em; vertical-align:middle; filter: drop-shadow(0 0 6px #d4af37cc);">&#x1F332;</span>
+  <header class="site-header">
+    <div class="shell topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-mark brand-mark--image"><img src="optimized-img/barata-logotipo-opt.png" alt="Guincho do Barata" width="192" height="135" decoding="async"></span>
+        <span>
+          <strong>Auto Socorro Rio Claro</strong>
+          <small>Guincho e Remoções</small>
+        </span>
       </a>
-      
-      <!-- BOTÃO HAMBURGUER MOBILE -->
-      <button class="mobile-menu-btn" aria-label="Menu" style="display: none; flex-direction: column; justify-content: space-around; width: 32px; height: 32px; background: transparent; border: none; cursor: pointer; padding: 0; z-index: 10000;">
-        <span style="width: 32px; height: 3px; background: #d4af37; border-radius: 3px; transition: all 0.3s;"></span>
-        <span style="width: 32px; height: 3px; background: #d4af37; border-radius: 3px; transition: all 0.3s;"></span>
-        <span style="width: 32px; height: 3px; background: #d4af37; border-radius: 3px; transition: all 0.3s;"></span>
+      <button class="menu-toggle" type="button" data-menu-toggle aria-label="Abrir menu">
+        <span></span>
+        <span></span>
+        <span></span>
       </button>
-      
-      <style>
-        @media (max-width: 768px) {
-          .mobile-menu-btn { display: flex !important; }
-        }
-      </style>
-      
-      <div class="space-x-10 hidden md:block text-sm uppercase tracking-wider flex items-center gap-8 menu-fancy">
-        <a href="index.html" class="menu-link">Início</a>
-        <a href="sobre.html" class="menu-link active">Sobre</a>
-        <a href="contato.html" class="menu-link">Contato</a>
-        <a href="admin.html" class="menu-link" style="color: #d4af37; font-weight: 700;">Admin</a>
-      </div>
-    </nav>
-    <style>
-      .logo-glow {
-        text-shadow: 0 2px 12px #d4af37cc, 0 0 2px #fffbe6;
-        letter-spacing: 0.18em;
-      }
-      .menu-fancy .menu-link {
-        position: relative;
-        padding: 0.5em 1.2em;
-        border-radius: 8px;
-        color: #e7cfa4;
-        font-weight: 600;
-        background: linear-gradient(90deg, rgba(212,175,55,0.08) 0%, rgba(255,255,255,0.02) 100%);
-        box-shadow: 0 2px 12px 0 rgba(212,175,55,0.08);
-        transition: color 0.25s, background 0.25s, box-shadow 0.25s, transform 0.18s;
-        overflow: hidden;
-      }
-      .menu-fancy .menu-link.active, .menu-fancy .menu-link:hover {
-        color: #fffbe6;
-        background: linear-gradient(90deg, #d4af37 0%, #fffbe6 100%);
-        box-shadow: 0 2px 16px 0 #d4af37cc;
-        transform: translateY(-2px) scale(1.04);
-        text-shadow: 0 2px 12px #d4af37cc, 0 0 2px #fffbe6;
-      }
-      .mobile-menu-btn.active span:nth-child(1) {
-        transform: rotate(45deg) translate(8px, 8px);
-      }
-      .mobile-menu-btn.active span:nth-child(2) {
-        opacity: 0;
-      }
-      .mobile-menu-btn.active span:nth-child(3) {
-        transform: rotate(-45deg) translate(7px, -7px);
-      }
-    </style>
+      <nav class="main-nav" data-mobile-menu>
+        <a href="index.html">Início</a>
+        <a class="is-active" href="sobre.html">Sobre</a>
+        <a href="admin.html">Login</a>
+      </nav>
+    </div>
   </header>
 
-  <!-- MENU MOBILE OVERLAY -->
-  <div id="mobileMenu" class="mobile-menu" style="position: fixed; top: 70px; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 10, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.77, 0, 0.18, 1); z-index: 9999; pointer-events: none;">
-    <a href="index.html" style="font-size: 1.5rem; font-weight: 700; color: #e7cfa4; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.1) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid transparent; text-decoration: none; pointer-events: all;">Início</a>
-    <a href="sobre.html" style="font-size: 1.5rem; font-weight: 700; color: #e7cfa4; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.1) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid transparent; text-decoration: none; pointer-events: all;">Sobre</a>
-    <a href="contato.html" style="font-size: 1.5rem; font-weight: 700; color: #e7cfa4; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.1) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid transparent; text-decoration: none; pointer-events: all;">Contato</a>
-    <a href="admin.html" style="font-size: 1.5rem; font-weight: 700; color: #d4af37; text-transform: uppercase; letter-spacing: 0.15em; padding: 1rem 2rem; border-radius: 12px; background: linear-gradient(90deg, rgba(212,175,55,0.2) 0%, transparent 100%); transition: all 0.3s; width: 80%; text-align: center; border: 2px solid #d4af37; text-decoration: none; pointer-events: all;">🔒 Admin</a>
-  </div>
-
-  <style>
-    .mobile-menu.active {
-      transform: translateX(0) !important;
-      pointer-events: all !important;
-    }
-    .mobile-menu a:hover,
-    .mobile-menu a.active {
-      background: linear-gradient(90deg, #d4af37 0%, #7a4a2e 100%) !important;
-      color: #fffbe6 !important;
-      border-color: #d4af37 !important;
-      box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4);
-      transform: scale(1.05);
-    }
-  </style>
-          
-        </style>
-      <style>
-        .logo-glow {
-          text-shadow: 0 2px 12px #d4af37cc, 0 0 2px #fffbe6;
-          letter-spacing: 0.18em;
-        }
-        .menu-fancy .menu-link {
-          position: relative;
-          padding: 0.5em 1.2em;
-          border-radius: 8px;
-          color: #e7cfa4;
-          font-weight: 600;
-          background: linear-gradient(90deg, rgba(212,175,55,0.08) 0%, rgba(255,255,255,0.02) 100%);
-          box-shadow: 0 2px 12px 0 rgba(212,175,55,0.08);
-          transition: color 0.25s, background 0.25s, box-shadow 0.25s, transform 0.18s;
-          overflow: hidden;
-        }
-        .menu-fancy .menu-link:hover, .menu-fancy .menu-link:focus {
-          color: #fffbe6;
-          background: linear-gradient(90deg, #d4af37 0%, #7a4a2e 100%);
-          box-shadow: 0 4px 24px 0 #d4af37cc, 0 0 8px #fffbe6;
-          transform: translateY(-2px) scale(1.06) skewX(-2deg);
-          text-shadow: 0 2px 12px #fffbe6, 0 0 2px #d4af37;
-        }
-        .menu-fancy .menu-link::after {
-          content: '';
-          display: block;
-          position: absolute;
-          left: 50%;
-          bottom: 0.18em;
-          width: 0;
-          height: 3px;
-          background: linear-gradient(90deg, #d4af37 0%, #fffbe6 100%);
-          border-radius: 2px;
-          transition: width 0.3s cubic-bezier(.77,0,.18,1), left 0.3s cubic-bezier(.77,0,.18,1);
-        }
-        .menu-fancy .menu-link:hover::after, .menu-fancy .menu-link:focus::after {
-          width: 80%;
-          left: 10%;
-        }
-      </style>
-  </header>
-  <div style="height:80px;"></div>
-  <section class="max-w-4xl mx-auto px-6 py-16 fade-up">
-    <h1 class="font-title text-4xl md:text-5xl text-ouro mb-8">Sobre a Madeireira Monteiro</h1>
-    <p class="mb-6 text-lg text-gray-300">Somos especialistas em madeiras nobres e tacos de alta qualidade, com tradição em transformar matéria-prima em peças únicas e duráveis. Trabalhamos com madeiras como Garapeira, Pequiá, Angelim Pedra e outras, sempre priorizando sustentabilidade e acabamento premium.</p>
-    <p class="mb-6 text-lg text-gray-300">Nossos tacos e mesas são produzidos sob medida, com atenção a cada detalhe, garantindo beleza, resistência e exclusividade para seu ambiente.</p>
-    
-    <!-- Vídeo de Apresentação -->
-    <div class="fade-up mb-12">
-      <h2 class="font-title text-3xl text-ouro mb-6 text-center">Conheça Nosso Trabalho</h2>
-      <div style="position: relative; max-width: 600px; margin: 0 auto; border-radius: 20px; overflow: hidden; padding: 12px; background: linear-gradient(145deg, #7a4a2e 0%, #5a3620 50%, #3a2210 100%); box-shadow: 0 20px 60px rgba(122,74,46,0.4), inset 0 2px 8px rgba(255,255,255,0.1), inset 0 -2px 8px rgba(0,0,0,0.5);">
-        <div style="position: relative; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4);">
-          <iframe width="100%" height="500" src="https://www.youtube.com/embed/s_VXhT8f91Y" title="Madeireira Monteiro" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="display: block; border-radius: 8px;"></iframe>
+  <main class="page-main">
+    <section class="section">
+      <div class="shell">
+        <div class="section-head reveal">
+          <span class="eyebrow">SERVIÇOS</span>
+          <h1>Remoção com foco em agilidade e operação correta.</h1>
         </div>
-        <!-- Detalhes de textura amadeirada -->
-        <div style="position: absolute; top: 6px; left: 6px; right: 6px; height: 6px; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%); border-radius: 20px 20px 0 0;"></div>
-        <div style="position: absolute; bottom: 6px; left: 6px; right: 6px; height: 6px; background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.3) 50%, transparent 100%); border-radius: 0 0 20px 20px;"></div>
+        <div class="feature-grid">
+          <article class="card reveal">
+            <h3>Atendimento principal</h3>
+            <p>Serviços de remoções de carros, caminhonetes, caminhões leves e pesados, tratores, máquinas e etc.</p>
+          </article>
+          <article class="card reveal">
+            <h3>Operação especializada</h3>
+            <p>Trabalhamos com lança zero grau para ampliar a segurança em embarques mais delicados.</p>
+          </article>
+          <article class="card reveal">
+            <h3>Atendimento direto</h3>
+            <p>O contato é feito por telefone ou WhatsApp, sem etapas desnecessárias para iniciar o serviço.</p>
+          </article>
+        </div>
       </div>
-    </div>
-    
-    <div class="bg-black/60 rounded-2xl p-6 border border-ouro/30 shadow-xl mb-8">
-      <h2 class="font-title text-2xl text-ouro mb-2">Endereço</h2>
-      <p class="text-gray-400">Avenida 16A número 172<br>Vila Indaiá - Rio Claro<br>São Paulo, Brasil</p>
-    </div>
-    <div class="grid md:grid-cols-3 gap-6">
-      <div class="bg-black/60 rounded-2xl p-4 border border-ouro/30 shadow-xl">
-        <h3 class="font-title text-xl text-ouro mb-2">Madeiras Nobres</h3>
-        <p class="text-gray-400 text-sm">Garapeira, Pequiá, Angelim Pedra e outras madeiras selecionadas, de origem sustentável.</p>
+    </section>
+
+    <section class="section section-alt">
+      <div class="shell highlight-grid">
+        <div id="contato-remocao" class="card reveal">
+          <span class="eyebrow">Empresa</span>
+          <h2>Auto Socorro Rio Claro</h2>
+          <p>Nome Fantasia: Auto Socorro Rio Claro</p>
+          <p>Razão Social: Abner Domingos Barata</p>
+          <p>CNPJ: 15.538.394/0001-03</p>
+          <p>Fundação: 16/05/2012</p>
+        </div>
+        <div class="card reveal">
+          <span class="eyebrow">Chamada rápida</span>
+          <h2>Contato para remoção</h2>
+          <p>Ligue: <a href="tel:+5519996513456">(019) 99651-3456 - Abner Barata</a></p>
+          <p>WhatsApp: <a href="https://wa.me/5519996513456" target="_blank" rel="noopener noreferrer">(019) 99651-3456</a></p>
+          <a class="button" href="https://wa.me/5519996513456" target="_blank" rel="noopener noreferrer">Fale conosco</a>
+        </div>
       </div>
-      <div class="bg-black/60 rounded-2xl p-4 border border-ouro/30 shadow-xl">
-        <h3 class="font-title text-xl text-ouro mb-2">Tacos & Pisos</h3>
-        <p class="text-gray-400 text-sm">Tacos de madeira maciça, acabamento refinado, instalação profissional e garantia de durabilidade.</p>
+    </section>
+
+    <section class="developer-banner">
+      <div class="shell">
+        <div class="developer-card">
+          <div class="developer-card__main">
+            <span class="developer-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" role="presentation">
+                <path d="M19.05 4.94A9.87 9.87 0 0 0 12.02 2C6.55 2 2.1 6.46 2.1 11.94c0 1.75.46 3.46 1.33 4.96L2 22l5.27-1.38a9.9 9.9 0 0 0 4.75 1.21h.01c5.47 0 9.92-4.46 9.92-9.94a9.83 9.83 0 0 0-2.9-6.95Zm-7.03 15.2h-.01a8.2 8.2 0 0 1-4.18-1.14l-.3-.18-3.13.82.84-3.05-.2-.31a8.2 8.2 0 0 1-1.27-4.34c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.85 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.25-8.24 8.25Zm4.53-6.18c-.25-.12-1.47-.72-1.69-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.17-.28.19-.52.07-.25-.12-1.04-.38-1.97-1.21-.73-.65-1.22-1.46-1.36-1.7-.14-.25-.01-.38.1-.5.1-.1.25-.27.37-.4.12-.14.16-.24.25-.4.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.77-1.84-.2-.47-.4-.41-.56-.42h-.48c-.17 0-.43.06-.65.31-.23.25-.87.85-.87 2.06 0 1.22.89 2.39 1.01 2.56.12.16 1.75 2.67 4.23 3.75.59.26 1.05.42 1.41.53.59.19 1.13.16 1.56.1.47-.07 1.47-.6 1.68-1.17.21-.58.21-1.08.15-1.18-.07-.1-.23-.16-.48-.28Z"></path>
+              </svg>
+            </span>
+            <span class="developer-card__text">
+              <span class="developer-card__title">
+                Desenvolvido por Jhonatan Barata
+                <svg viewBox="0 0 24 24" fill="currentColor" role="presentation">
+                  <path d="M19.05 4.94A9.87 9.87 0 0 0 12.02 2C6.55 2 2.1 6.46 2.1 11.94c0 1.75.46 3.46 1.33 4.96L2 22l5.27-1.38a9.9 9.9 0 0 0 4.75 1.21h.01c5.47 0 9.92-4.46 9.92-9.94a9.83 9.83 0 0 0-2.9-6.95Zm-7.03 15.2h-.01a8.2 8.2 0 0 1-4.18-1.14l-.3-.18-3.13.82.84-3.05-.2-.31a8.2 8.2 0 0 1-1.27-4.34c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.85 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.25-8.24 8.25Zm4.53-6.18c-.25-.12-1.47-.72-1.69-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.17-.28.19-.52.07-.25-.12-1.04-.38-1.97-1.21-.73-.65-1.22-1.46-1.36-1.7-.14-.25-.01-.38.1-.5.1-.1.25-.27.37-.4.12-.14.16-.24.25-.4.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.77-1.84-.2-.47-.4-.41-.56-.42h-.48c-.17 0-.43.06-.65.31-.23.25-.87.85-.87 2.06 0 1.22.89 2.39 1.01 2.56.12.16 1.75 2.67 4.23 3.75.59.26 1.05.42 1.41.53.59.19 1.13.16 1.56.1.47-.07 1.47-.6 1.68-1.17.21-.58.21-1.08.15-1.18-.07-.1-.23-.16-.48-.28Z"></path>
+                </svg>
+              </span>
+            </span>
+          </div>
+          <span class="developer-card__actions">
+            <a class="developer-card__cta" href="https://wa.me/5519997024884" target="_blank" rel="noopener noreferrer" aria-label="Abrir WhatsApp de Jhonatan Barata">
+              <svg viewBox="0 0 24 24" fill="currentColor" role="presentation">
+                <path d="M19.05 4.94A9.87 9.87 0 0 0 12.02 2C6.55 2 2.1 6.46 2.1 11.94c0 1.75.46 3.46 1.33 4.96L2 22l5.27-1.38a9.9 9.9 0 0 0 4.75 1.21h.01c5.47 0 9.92-4.46 9.92-9.94a9.83 9.83 0 0 0-2.9-6.95Zm-7.03 15.2h-.01a8.2 8.2 0 0 1-4.18-1.14l-.3-.18-3.13.82.84-3.05-.2-.31a8.2 8.2 0 0 1-1.27-4.34c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.85 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.25-8.24 8.25Zm4.53-6.18c-.25-.12-1.47-.72-1.69-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.17-.28.19-.52.07-.25-.12-1.04-.38-1.97-1.21-.73-.65-1.22-1.46-1.36-1.7-.14-.25-.01-.38.1-.5.1-.1.25-.27.37-.4.12-.14.16-.24.25-.4.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.77-1.84-.2-.47-.4-.41-.56-.42h-.48c-.17 0-.43.06-.65.31-.23.25-.87.85-.87 2.06 0 1.22.89 2.39 1.01 2.56.12.16 1.75 2.67 4.23 3.75.59.26 1.05.42 1.41.53.59.19 1.13.16 1.56.1.47-.07 1.47-.6 1.68-1.17.21-.58.21-1.08.15-1.18-.07-.1-.23-.16-.48-.28Z"></path>
+              </svg>
+            </a>
+            <a class="developer-card__social developer-card__social--instagram" href="https://www.instagram.com/jhonatanbarata/" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram de Jhonatan Barata">
+              <svg viewBox="0 0 24 24" fill="currentColor" role="presentation">
+                <path d="M7.75 2h8.5A5.76 5.76 0 0 1 22 7.75v8.5A5.76 5.76 0 0 1 16.25 22h-8.5A5.76 5.76 0 0 1 2 16.25v-8.5A5.76 5.76 0 0 1 7.75 2Zm0 1.8A3.96 3.96 0 0 0 3.8 7.75v8.5a3.96 3.96 0 0 0 3.95 3.95h8.5a3.96 3.96 0 0 0 3.95-3.95v-8.5a3.96 3.96 0 0 0-3.95-3.95Zm8.9 1.35a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4ZM12 6.85A5.15 5.15 0 1 1 6.85 12 5.16 5.16 0 0 1 12 6.85Zm0 1.8A3.35 3.35 0 1 0 15.35 12 3.36 3.36 0 0 0 12 8.65Z"></path>
+              </svg>
+            </a>
+            <a class="developer-card__social developer-card__social--facebook" href="https://www.facebook.com/jhonatan.barata" target="_blank" rel="noopener noreferrer" aria-label="Abrir Facebook de Jhonatan Barata">
+              <svg viewBox="0 0 24 24" fill="currentColor" role="presentation">
+                <path d="M13.5 22v-8.18h2.77l.41-3.22H13.5V8.55c0-.93.26-1.56 1.59-1.56h1.7V4.11A22.43 22.43 0 0 0 14.31 4c-2.45 0-4.13 1.5-4.13 4.25v2.35H7.4v3.22h2.78V22Z"></path>
+              </svg>
+            </a>
+          </span>
+        </div>
       </div>
-      <div class="bg-black/60 rounded-2xl p-4 border border-ouro/30 shadow-xl">
-        <h3 class="font-title text-xl text-ouro mb-2">Sustentabilidade</h3>
-        <p class="text-gray-400 text-sm">Compromisso com o meio ambiente, utilizando apenas madeira de manejo responsável.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell">
+      <div class="footer-grid">
+        <section class="footer-panel">
+          <span class="footer-heading">Empresa</span>
+          <strong class="footer-brand">Auto Socorro Rio Claro</strong>
+          <p>Razão Social: 15.538.394 Abner Domingos Barata</p>
+          <p>CNPJ: 15.538.394/0001-03</p>
+        </section>
+        <section class="footer-panel">
+          <span class="footer-heading">Endereço</span>
+          <p>Rua 3 NV, 189 - Casa 189</p>
+          <p>Jardim Nova Veneza, Rio Claro - SP</p>
+          <p>CEP 13503-552</p>
+        </section>
+        <section class="footer-panel">
+          <span class="footer-heading">Contato</span>
+          <p><a class="footer-link" href="tel:+5519996513456">(019) 99651-3456 - Abner Barata</a></p>
+          <p><a class="footer-link" href="https://wa.me/5519996513456" target="_blank" rel="noopener noreferrer">WhatsApp oficial</a></p>
+        </section>
+        <section class="footer-panel">
+          <span class="footer-heading">Privacidade</span>
+          <p><a class="footer-link" href="politicadeprivacidade.html">Política de Privacidade</a></p>
+          <p class="footer-note">Os dados enviados são usados apenas para contato e execução do serviço.</p>
+        </section>
       </div>
-    </div>
-  </section>
-  <footer class="bg-black py-10 text-center text-gray-500 text-sm mt-16 border-t border-ouro/20">
-    <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-      <span>© 2025 Madeireira Monteiro — Mesas Artesanais Premium</span>
-      <span class="hidden md:inline">|</span>
-      <a href="contato.html" class="text-ouro hover:underline">Fale conosco</a>
+      <div class="footer-meta">
+        <p>Atendimento das 07:00 às 22:00 horas para Rio Claro e região, com resposta rápida por telefone e WhatsApp.</p>
+        <a class="footer-link footer-meta-link" href="https://wa.me/5519996513456" target="_blank" rel="noopener noreferrer">Chamar no WhatsApp</a>
+      </div>
     </div>
   </footer>
-  <script>
-    document.querySelectorAll('.fade-up').forEach(el => setTimeout(() => el.classList.add('show'), 200));
-  </script>
-  <script src="mobile-menu.js"></script>
+
+  <div class="privacy-modal" id="privacy-modal" aria-hidden="true">
+    <div class="privacy-modal__backdrop" data-close-privacy></div>
+    <div class="privacy-modal__panel" role="dialog" aria-modal="true" aria-labelledby="privacy-title">
+      <button class="privacy-modal__close" type="button" data-close-privacy aria-label="Fechar">×</button>
+      <h2 id="privacy-title">Política de Privacidade – Auto Socorro Rio Claro</h2>
+      <p>A empresa Auto Socorro Rio Claro (CNPJ 15.538.394/0001-03) recolhe apenas informações fornecidas voluntariamente pelos clientes através de telefone ou WhatsApp para fins de prestação de serviços de guincho.</p>
+      <p>Não coletamos dados sensíveis nem compartilhamos informações com terceiros.</p>
+      <p>Os dados são utilizados exclusivamente para contato e execução do serviço solicitado.</p>
+      <p>Para qualquer dúvida, entre em contato pelo telefone informado no site.</p>
+      <a class="button button-secondary" href="politicadeprivacidade.html">Abrir página completa</a>
+    </div>
+  </div>
+
   <script src="page-transitions.js"></script>
+  <script src="site-common.js"></script>
 </body>
 </html>
+

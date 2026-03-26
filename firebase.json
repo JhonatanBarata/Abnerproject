@@ -1,16 +1,133 @@
 {
+  "functions": {
+    "source": "my-project/functions"
+  },
   "hosting": {
     "public": "my-project",
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "functions/**"
+    ],
+    "headers": [
+      {
+        "source": "/admin.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
+        "source": "/admin-entry",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
+        "source": "/admin-entry.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
+        "source": "/acesso-negado",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
+        "source": "/acesso-negado.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      }
     ],
     "redirects": [
       {
         "source": "/favicon.ico",
         "destination": "/favicon.svg",
         "type": 302
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/admin-entry",
+        "destination": "/admin-entry.html"
+      },
+      {
+        "source": "/acesso-negado",
+        "destination": "/acesso-negado.html"
+      },
+      {
+        "source": "/api/mercadopago/create-preference",
+        "function": {
+          "functionId": "createMercadoPagoPreference",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/api/mercadopago/token",
+        "function": {
+          "functionId": "manageMercadoPagoToken",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/api/mercadopago/quote",
+        "function": {
+          "functionId": "getMercadoPagoQuote",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/api/mercadopago/create-checkout",
+        "function": {
+          "functionId": "createMercadoPagoCheckout",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/api/mercadopago/verify-return",
+        "function": {
+          "functionId": "verifyMercadoPagoReturn",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/api/mercadopago/refund",
+        "function": {
+          "functionId": "refundMercadoPagoPayment",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/api/mercadopago/webhook",
+        "function": {
+          "functionId": "mercadoPagoWebhook",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/api/admin/hbx-auth",
+        "function": {
+          "functionId": "signInAdminFromHbx",
+          "region": "southamerica-east1"
+        }
       }
     ]
   }

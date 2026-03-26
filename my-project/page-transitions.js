@@ -3,8 +3,8 @@
 
   const MIN_LOADER_MS = (() => {
     const raw = loader?.getAttribute('data-min-duration');
-    const parsed = raw ? Number.parseInt(raw, 10) : 2000;
-    return Number.isFinite(parsed) ? Math.max(0, parsed) : 2000;
+    const parsed = raw ? Number.parseInt(raw, 10) : 280;
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 280;
   })();
 
   let loaderShownAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -67,7 +67,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('page-visible');
-    // Hide after a minimum duration so the loader is noticeable.
+    // Hide after a minimum duration só the loader is noticeable.
     hideLoader();
   });
 
