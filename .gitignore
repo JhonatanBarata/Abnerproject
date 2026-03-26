@@ -1,4 +1,21 @@
-# Logs
+node_modules/
+dist/
+build/
+.cache/
+/.firebase/
+/.venv/
+env/
+*.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+.idea/
+.vscode/
+coverage/
+public/optimized-img/
+/*.local.js
+/*.local.json# Logs
 logs
 *.log
 npm-debug.log*
